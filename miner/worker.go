@@ -234,12 +234,17 @@ func (self *worker) update() {
 		// A real event arrived, process interesting content
 		switch ev := event.Data.(type) {
 		case core.ChainHeadEvent:
+			log.Info(fmt.Sprint("core.ChainHeadEvent"))
 			self.commitNewWork()
 		case core.ChainSideEvent:
 			self.uncleMu.Lock()
 			self.possibleUncles[ev.Block.Hash()] = ev.Block
 			self.uncleMu.Unlock()
+			log.Info(fmt.Sprint("core.ChainSideEvent"))
+			// include uncle immediately
+			self.commitNewWork()
 		case core.TxPreEvent:
+			/*
 			// Apply transaction to the pending state if we're not mining
 			if atomic.LoadInt32(&self.mining) == 0 {
 				self.currentMu.Lock()
@@ -251,6 +256,10 @@ func (self *worker) update() {
 				self.current.commitTransactions(self.mux, txset, self.chain, self.coinbase)
 				self.currentMu.Unlock()
 			}
+			*/
+			// always apply new transactions
+			log.Info(fmt.Sprint("core.TxPreEvent"))
+			self.commitNewWork()
 		}
 	}
 }
@@ -266,6 +275,8 @@ func (self *worker) wait() {
 			}
 			block := result.Block
 			work := result.Work
+
+			bstart := time.Now()
 
 			if self.fullValidation {
 				if _, err := self.chain.InsertChain(types.Blocks{block}); err != nil {
@@ -302,6 +313,11 @@ func (self *worker) wait() {
 					mustCommitNewWork = false
 				}
 
+				if stat == core.SideStatTy {
+					log.Info(fmt.Sprint("Mined an uncle. posting ChainSideEvent."))
+					self.mux.Post(core.ChainSideEvent{Block: block})
+				}
+
 				// broadcast before waiting for validation
 				go func(block *types.Block, logs []*types.Log, receipts []*types.Receipt) {
 					self.mux.Post(core.NewMinedBlockEvent{Block: block})
@@ -318,6 +334,9 @@ func (self *worker) wait() {
 			}
 			// Insert the block into the set of pending ones to wait for confirmations
 			self.unconfirmed.Insert(block.NumberU64(), block.Hash())
+
+			log.Info("Inserted new block", "number", block.Number(), "hash", block.Hash(), "uncles", len(block.Uncles()),
+				"txs", len(block.Transactions()), "gas", block.GasUsed(), "elapsed", common.PrettyDuration(time.Since(bstart)))
 
 			if mustCommitNewWork {
 				self.commitNewWork()

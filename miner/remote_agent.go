@@ -126,8 +126,10 @@ func (a *RemoteAgent) GetWork() ([3]string, error) {
 		res[2] = common.BytesToHash(n.Bytes()).Hex()
 
 		a.work[block.HashNoNonce()] = a.currentWork
+		log.Info(fmt.Sprintf("getWork returning header hash: %x", block.HashNoNonce()))
 		return res, nil
 	}
+	log.Info(fmt.Sprintf("No work available yet."))
 	return res, errors.New("No work available yet, don't panic.")
 }
 
@@ -135,6 +137,9 @@ func (a *RemoteAgent) GetWork() ([3]string, error) {
 // whether the solution was accepted or not (not can be both a bad pow as well as
 // any other error, like no work pending).
 func (a *RemoteAgent) SubmitWork(nonce types.BlockNonce, mixDigest, hash common.Hash) bool {
+	log.Info(fmt.Sprintf("SubmitWork header hash: %x", hash))
+	log.Info(fmt.Sprintf("SubmitWork mixDigest: %x", mixDigest))
+	log.Info(fmt.Sprintf("SubmitWork nonce: %x", nonce))
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
@@ -157,7 +162,9 @@ func (a *RemoteAgent) SubmitWork(nonce types.BlockNonce, mixDigest, hash common.
 
 	// Solutions seems to be valid, return to the miner and notify acceptance
 	a.returnCh <- &Result{work, block}
+	/* don't delete, a second solution (uncle) might come later
 	delete(a.work, hash)
+	*/
 
 	return true
 }
