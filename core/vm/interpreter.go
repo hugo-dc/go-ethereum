@@ -95,6 +95,7 @@ func (in *Interpreter) enforceRestrictions(op OpCode, operation operation, stack
 // considered a revert-and-consume-all-gas operation. No error specific checks
 // should be handled to reduce complexity and errors further down the in.
 func (in *Interpreter) Run(snapshot int, contract *Contract, input []byte) (ret []byte, err error) {
+	//fmt.Println("interpreter.go Run")
 	in.evm.depth++
 	defer func() { in.evm.depth-- }()
 
@@ -112,17 +113,25 @@ func (in *Interpreter) Run(snapshot int, contract *Contract, input []byte) (ret 
 		op    OpCode        // current opcode
 		mem   = NewMemory() // bound memory
 		stack = newstack()  // local stack
+		stackCopy = newstack()
+		logged = bool(false)
 		// For optimisation reason we're using uint64 as the program counter.
 		// It's theoretically possible to go above 2^64. The YP defines the PC
 		// to be uint256. Practically much less so feasible.
 		pc   = uint64(0) // program counter
+		pcCopy = uint64(0)
+		gasCopy = uint64(0)
 		cost uint64
 	)
 	contract.Input = input
 
 	defer func() {
-		if err != nil && in.cfg.Debug {
-			in.cfg.Tracer.CaptureState(in.evm, pc, op, contract.Gas, cost, mem, stack, contract, in.evm.depth, err)
+		if err != nil && !logged && in.cfg.Debug {
+		//if in.cfg.Debug {
+			//fmt.Println("defer func interpreter.go calling Tracer.CaptureState.")
+			in.cfg.Tracer.CaptureState(in.evm, pcCopy, op, gasCopy, cost, mem, stackCopy, contract, in.evm.depth, err)
+			//fmt.Println("defer func interpreter.go called Tracer.CaptureState.")
+			//stackCopy = newstack()
 		}
 	}()
 
@@ -131,8 +140,14 @@ func (in *Interpreter) Run(snapshot int, contract *Contract, input []byte) (ret 
 	// the execution of one of the operations or until the done flag is set by the
 	// parent context.
 	for atomic.LoadInt32(&in.evm.abort) == 0 {
+		//fmt.Println("interpreter.go operation loop begin. stack:")
+		//stack.Print()
 		// Get the memory location of pc
 		op = contract.GetOp(pc)
+		
+		logged = false
+
+		//fmt.Println("interpreter loop begin. pc:", pc)
 
 		// get the operation from the jump table matching the opcode
 		operation := in.cfg.JumpTable[op]
@@ -140,16 +155,37 @@ func (in *Interpreter) Run(snapshot int, contract *Contract, input []byte) (ret 
 			return nil, err
 		}
 
+		//fmt.Println("interpreter.go got op from jump table. checking if valid")
+
+		if in.cfg.Debug {
+			//fmt.Println("interpreter.go clearing stackCopy.")
+			pcCopy = uint64(pc)
+			gasCopy = uint64(contract.Gas)
+
+			stackCopy = newstack()
+			for _, val := range stack.data {
+				stackCopy.push(val)
+			}
+			//fmt.Println("stackCopy.Print():")
+			//stackCopy.Print()
+		}
+		
+
+
 		// if the op is invalid abort the process and return an error
 		if !operation.valid {
 			return nil, fmt.Errorf("invalid opcode 0x%x", int(op))
 		}
+		
+		//fmt.Println("interpreter.go op is valid. now validating stack...")
 
 		// validate the stack and make sure there enough stack items available
 		// to perform the operation
 		if err := operation.validateStack(stack); err != nil {
 			return nil, err
 		}
+		
+		//fmt.Println("interpreter.go stack validated. now checking memory...")
 
 		var memorySize uint64
 		// calculate the new memory size and expand the memory to fit
@@ -165,6 +201,9 @@ func (in *Interpreter) Run(snapshot int, contract *Contract, input []byte) (ret 
 				return nil, errGasUintOverflow
 			}
 		}
+		
+		//fmt.Println("interpreter.go memory fits.")
+		
 
 		if !in.cfg.DisableGasMetering {
 			// consume the gas and return an error if not enough gas is available.
@@ -177,13 +216,23 @@ func (in *Interpreter) Run(snapshot int, contract *Contract, input []byte) (ret 
 		if memorySize > 0 {
 			mem.Resize(memorySize)
 		}
+		
 
-		if in.cfg.Debug {
-			in.cfg.Tracer.CaptureState(in.evm, pc, op, contract.Gas, cost, mem, stack, contract, in.evm.depth, err)
+		if err == nil && in.cfg.Debug {
+			// trace needs to be called before operation.execute for CALLs etc
+			//fmt.Println("interpreter.go calling Tracer.CaptureState before operation.execute.")
+			in.cfg.Tracer.CaptureState(in.evm, pcCopy, op, gasCopy, cost, mem, stackCopy, contract, in.evm.depth, err)
+			//fmt.Println("interpreter.go called Tracer.CaptureState before operation.execute.")
+			logged = true
 		}
 
 		// execute the operation
+		//fmt.Println("interpreter.go calling operation.execute.")
 		res, err := operation.execute(&pc, in.evm, contract, mem, stack)
+		//fmt.Println("interpreter.go called operation.execute.")
+		
+
+
 		// verifyPool is a build flag. Pool verification makes sure the integrity
 		// of the integer pool by comparing values to a default value.
 		if verifyPool {

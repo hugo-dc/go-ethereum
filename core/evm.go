@@ -61,6 +61,7 @@ func NewEVMContext(msg Message, header *types.Header, chain ChainContext, author
 // GetHashFn returns a GetHashFunc which retrieves header hashes by number
 func GetHashFn(ref *types.Header, chain ChainContext) func(n uint64) common.Hash {
 	return func(n uint64) common.Hash {
+		//fmt.Println("evm.go GetHashFn")
 		for header := chain.GetHeader(ref.ParentHash, ref.Number.Uint64()-1); header != nil; header = chain.GetHeader(header.ParentHash, header.Number.Uint64()-1) {
 			if header.Number.Uint64() == n {
 				return header.Hash()

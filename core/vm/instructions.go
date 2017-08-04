@@ -410,12 +410,19 @@ func opGasprice(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack 
 }
 
 func opBlockhash(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
+	//fmt.Println("instructions.go opBlockhash")
 	num := stack.pop()
+	//fmt.Println("instructions.go opBlockhash num: %v", num)
+	//fmt.Println("evm.BlockNumber: %v", evm.BlockNumber)
 
 	n := evm.interpreter.intPool.get().Sub(evm.BlockNumber, common.Big257)
+	//fmt.Println("instructions.go opBlockhash n: %v", n)
 	if num.Cmp(n) > 0 && num.Cmp(evm.BlockNumber) < 0 {
+		//fmt.Println("instructions.go calling evm.GetHash.")
 		stack.push(evm.GetHash(num.Uint64()).Big())
 	} else {
+		//fmt.Println("num.Cmp(n):", num.Cmp(n))
+		//fmt.Println("num.Cmp(evm.BlockNumber):", num.Cmp(evm.BlockNumber))
 		stack.push(new(big.Int))
 	}
 
@@ -540,6 +547,7 @@ func opGas(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *Stac
 }
 
 func opCreate(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
+	//fmt.Println("instructions.go opCreate")
 	var (
 		value        = stack.pop()
 		offset, size = stack.pop(), stack.pop()
@@ -638,6 +646,7 @@ func opCallCode(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack 
 }
 
 func opDelegateCall(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
+	//fmt.Println("instructions.go opDelegateCall")
 	gas, to, inOffset, inSize, outOffset, outSize := stack.pop().Uint64(), stack.pop(), stack.pop(), stack.pop(), stack.pop(), stack.pop()
 
 	toAddr := common.BigToAddress(to)

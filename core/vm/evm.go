@@ -19,6 +19,7 @@ package vm
 import (
 	"math/big"
 	"sync/atomic"
+	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -125,6 +126,7 @@ func (evm *EVM) Cancel() {
 // necessary value transfer required and takes the necessary steps to create accounts and reverses the state in
 // case of an execution error or failed value transfer.
 func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas uint64, value *big.Int) (ret []byte, leftOverGas uint64, err error) {
+	fmt.Println("core/vm/evm.go Call gas:", gas)
 	if evm.vmConfig.NoRecursion && evm.depth > 0 {
 		return nil, gas, nil
 	}
@@ -258,9 +260,14 @@ func (evm *EVM) Create(caller ContractRef, code []byte, gas uint64, value *big.I
 	// Create a new account on the state
 	nonce := evm.StateDB.GetNonce(caller.Address())
 	evm.StateDB.SetNonce(caller.Address(), nonce+1)
+	
+	fmt.Println("core/vm/emv.go Create caller nonce:", nonce)
+	fmt.Println("core/vm/emv.go Create caller.Address():", caller.Address().Hex())
 
 	snapshot := evm.StateDB.Snapshot()
 	contractAddr = crypto.CreateAddress(caller.Address(), nonce)
+	
+	fmt.Println("core/vm/emv.go Create new contract at contractAddr:", contractAddr.Hex())
 	evm.StateDB.CreateAccount(contractAddr)
 	if evm.ChainConfig().IsEIP158(evm.BlockNumber) {
 		evm.StateDB.SetNonce(contractAddr, 1)

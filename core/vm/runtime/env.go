@@ -18,19 +18,25 @@ package runtime
 
 import (
 	"math/big"
-
-	"github.com/ethereum/go-ethereum/common"
+	"fmt"
+	// "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/vm"
 )
 
 func NewEnv(cfg *Config, state *state.StateDB) *vm.EVM {
+	fmt.Println("vm/runtime/env.go NewEnv cfg.Time:", cfg.Time)
 	context := vm.Context{
 		CanTransfer: core.CanTransfer,
 		Transfer:    core.Transfer,
-		GetHash:     func(uint64) common.Hash { return common.Hash{} },
-
+		/*
+		GetHash:     func(uint64) common.Hash {
+			fmt.Println("runtime/env.go GetHash.")
+			return common.Hash{}
+		},
+		*/
+		GetHash: cfg.GetHashFn,
 		Origin:      cfg.Origin,
 		Coinbase:    cfg.Coinbase,
 		BlockNumber: cfg.BlockNumber,

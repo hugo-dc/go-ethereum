@@ -20,6 +20,7 @@ import (
 	"math"
 	"math/big"
 	"time"
+	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/state"
@@ -40,6 +41,7 @@ type Config struct {
 	Time        *big.Int
 	GasLimit    uint64
 	GasPrice    *big.Int
+	TxGasLimit uint64
 	Value       *big.Int
 	DisableJit  bool // "disable" so it's enabled by default
 	Debug       bool
@@ -79,10 +81,13 @@ func setDefaults(cfg *Config) {
 		cfg.Value = new(big.Int)
 	}
 	if cfg.BlockNumber == nil {
-		cfg.BlockNumber = new(big.Int)
+		cfg.BlockNumber = big.NewInt(1)
 	}
+	//fmt.Println("testing if cfg.GetHashFn == nil")
 	if cfg.GetHashFn == nil {
+		//fmt.Println("YES == nil")
 		cfg.GetHashFn = func(n uint64) common.Hash {
+			//fmt.Println("runtime.go GetHashFn")
 			return common.BytesToHash(crypto.Keccak256([]byte(new(big.Int).SetUint64(n).String())))
 		}
 	}
@@ -95,6 +100,7 @@ func setDefaults(cfg *Config) {
 // the given code. It enabled the JIT by default and make sure that it's restored
 // to it's original state afterwards.
 func Execute(code, input []byte, cfg *Config) ([]byte, *state.StateDB, error) {
+	fmt.Println("runtime.go Execute")
 	if cfg == nil {
 		cfg = new(Config)
 	}
@@ -126,6 +132,7 @@ func Execute(code, input []byte, cfg *Config) ([]byte, *state.StateDB, error) {
 
 // Create executes the code using the EVM create method
 func Create(input []byte, cfg *Config) ([]byte, common.Address, uint64, error) {
+	fmt.Println("runtime.go Create")
 	if cfg == nil {
 		cfg = new(Config)
 	}
@@ -139,14 +146,18 @@ func Create(input []byte, cfg *Config) ([]byte, common.Address, uint64, error) {
 		vmenv  = NewEnv(cfg, cfg.State)
 		sender = vm.AccountRef(cfg.Origin)
 	)
+	
+	fmt.Println("runtime.go Create sender:", sender.Address().Hex())
 
 	// Call the code with the given configuration.
 	code, address, leftOverGas, err := vmenv.Create(
 		sender,
 		input,
-		cfg.GasLimit,
+		cfg.TxGasLimit,
 		cfg.Value,
 	)
+	
+	fmt.Println("runtime.go vmenv.Create returned address:", address.Hex())
 	return code, address, leftOverGas, err
 }
 
@@ -156,7 +167,9 @@ func Create(input []byte, cfg *Config) ([]byte, common.Address, uint64, error) {
 // Call, unlike Execute, requires a config and also requires the State field to
 // be set.
 func Call(address common.Address, input []byte, cfg *Config) ([]byte, uint64, error) {
+	//fmt.Println("runtime.go input:", input)
 	setDefaults(cfg)
+	fmt.Println("runtime.go Call cfg.TxGasLimit:", cfg.TxGasLimit)
 
 	vmenv := NewEnv(cfg, cfg.State)
 
@@ -166,7 +179,7 @@ func Call(address common.Address, input []byte, cfg *Config) ([]byte, uint64, er
 		sender,
 		address,
 		input,
-		cfg.GasLimit,
+		cfg.TxGasLimit,
 		cfg.Value,
 	)
 
