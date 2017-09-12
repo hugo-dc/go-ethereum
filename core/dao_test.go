@@ -20,8 +20,9 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/consensus/ethash"
+	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/ethdb"
-	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/params"
 )
 
@@ -32,19 +33,22 @@ func TestDAOForkRangeExtradata(t *testing.T) {
 
 	// Generate a common prefix for both pro-forkers and non-forkers
 	db, _ := ethdb.NewMemDatabase()
-	genesis := WriteGenesisBlockForTesting(db)
-	prefix, _ := GenerateChain(nil, genesis, db, int(forkBlock.Int64()-1), func(i int, gen *BlockGen) {})
+	gspec := new(Genesis)
+	genesis := gspec.MustCommit(db)
+	prefix, _ := GenerateChain(params.TestChainConfig, genesis, db, int(forkBlock.Int64()-1), func(i int, gen *BlockGen) {})
 
 	// Create the concurrent, conflicting two nodes
 	proDb, _ := ethdb.NewMemDatabase()
-	WriteGenesisBlockForTesting(proDb)
-	proConf := &ChainConfig{HomesteadBlock: big.NewInt(0), DAOForkBlock: forkBlock, DAOForkSupport: true}
-	proBc, _ := NewBlockChain(proDb, proConf, new(FakePow), new(event.TypeMux))
+	gspec.MustCommit(proDb)
+	proConf := &params.ChainConfig{HomesteadBlock: big.NewInt(0), DAOForkBlock: forkBlock, DAOForkSupport: true}
+	proBc, _ := NewBlockChain(proDb, proConf, ethash.NewFaker(), vm.Config{})
+	defer proBc.Stop()
 
 	conDb, _ := ethdb.NewMemDatabase()
-	WriteGenesisBlockForTesting(conDb)
-	conConf := &ChainConfig{HomesteadBlock: big.NewInt(0), DAOForkBlock: forkBlock, DAOForkSupport: false}
-	conBc, _ := NewBlockChain(conDb, conConf, new(FakePow), new(event.TypeMux))
+	gspec.MustCommit(conDb)
+	conConf := &params.ChainConfig{HomesteadBlock: big.NewInt(0), DAOForkBlock: forkBlock, DAOForkSupport: false}
+	conBc, _ := NewBlockChain(conDb, conConf, ethash.NewFaker(), vm.Config{})
+	defer conBc.Stop()
 
 	if _, err := proBc.InsertChain(prefix); err != nil {
 		t.Fatalf("pro-fork: failed to import chain prefix: %v", err)
@@ -56,10 +60,11 @@ func TestDAOForkRangeExtradata(t *testing.T) {
 	for i := int64(0); i < params.DAOForkExtraRange.Int64(); i++ {
 		// Create a pro-fork block, and try to feed into the no-fork chain
 		db, _ = ethdb.NewMemDatabase()
-		WriteGenesisBlockForTesting(db)
-		bc, _ := NewBlockChain(db, conConf, new(FakePow), new(event.TypeMux))
+		gspec.MustCommit(db)
+		bc, _ := NewBlockChain(db, conConf, ethash.NewFaker(), vm.Config{})
+		defer bc.Stop()
 
-		blocks := conBc.GetBlocksFromHash(conBc.CurrentBlock().Hash(), int(conBc.CurrentBlock().NumberU64()+1))
+		blocks := conBc.GetBlocksFromHash(conBc.CurrentBlock().Hash(), int(conBc.CurrentBlock().NumberU64()))
 		for j := 0; j < len(blocks)/2; j++ {
 			blocks[j], blocks[len(blocks)-1-j] = blocks[len(blocks)-1-j], blocks[j]
 		}
@@ -77,10 +82,11 @@ func TestDAOForkRangeExtradata(t *testing.T) {
 		}
 		// Create a no-fork block, and try to feed into the pro-fork chain
 		db, _ = ethdb.NewMemDatabase()
-		WriteGenesisBlockForTesting(db)
-		bc, _ = NewBlockChain(db, proConf, new(FakePow), new(event.TypeMux))
+		gspec.MustCommit(db)
+		bc, _ = NewBlockChain(db, proConf, ethash.NewFaker(), vm.Config{})
+		defer bc.Stop()
 
-		blocks = proBc.GetBlocksFromHash(proBc.CurrentBlock().Hash(), int(proBc.CurrentBlock().NumberU64()+1))
+		blocks = proBc.GetBlocksFromHash(proBc.CurrentBlock().Hash(), int(proBc.CurrentBlock().NumberU64()))
 		for j := 0; j < len(blocks)/2; j++ {
 			blocks[j], blocks[len(blocks)-1-j] = blocks[len(blocks)-1-j], blocks[j]
 		}
@@ -99,10 +105,11 @@ func TestDAOForkRangeExtradata(t *testing.T) {
 	}
 	// Verify that contra-forkers accept pro-fork extra-datas after forking finishes
 	db, _ = ethdb.NewMemDatabase()
-	WriteGenesisBlockForTesting(db)
-	bc, _ := NewBlockChain(db, conConf, new(FakePow), new(event.TypeMux))
+	gspec.MustCommit(db)
+	bc, _ := NewBlockChain(db, conConf, ethash.NewFaker(), vm.Config{})
+	defer bc.Stop()
 
-	blocks := conBc.GetBlocksFromHash(conBc.CurrentBlock().Hash(), int(conBc.CurrentBlock().NumberU64()+1))
+	blocks := conBc.GetBlocksFromHash(conBc.CurrentBlock().Hash(), int(conBc.CurrentBlock().NumberU64()))
 	for j := 0; j < len(blocks)/2; j++ {
 		blocks[j], blocks[len(blocks)-1-j] = blocks[len(blocks)-1-j], blocks[j]
 	}
@@ -115,10 +122,11 @@ func TestDAOForkRangeExtradata(t *testing.T) {
 	}
 	// Verify that pro-forkers accept contra-fork extra-datas after forking finishes
 	db, _ = ethdb.NewMemDatabase()
-	WriteGenesisBlockForTesting(db)
-	bc, _ = NewBlockChain(db, proConf, new(FakePow), new(event.TypeMux))
+	gspec.MustCommit(db)
+	bc, _ = NewBlockChain(db, proConf, ethash.NewFaker(), vm.Config{})
+	defer bc.Stop()
 
-	blocks = proBc.GetBlocksFromHash(proBc.CurrentBlock().Hash(), int(proBc.CurrentBlock().NumberU64()+1))
+	blocks = proBc.GetBlocksFromHash(proBc.CurrentBlock().Hash(), int(proBc.CurrentBlock().NumberU64()))
 	for j := 0; j < len(blocks)/2; j++ {
 		blocks[j], blocks[len(blocks)-1-j] = blocks[len(blocks)-1-j], blocks[j]
 	}

@@ -1,4 +1,4 @@
-// Copyright 2016 The go-ethereum Authors
+// Copyright 2015 The go-ethereum Authors
 // This file is part of the go-ethereum library.
 //
 // The go-ethereum library is free software: you can redistribute it and/or modify
@@ -17,14 +17,16 @@
 package eth
 
 import (
+	"context"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/internal/ethapi"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
-	"golang.org/x/net/context"
 )
 
 // ContractBackend implements bind.ContractBackend with direct calls to Ethereum
@@ -42,65 +44,78 @@ type ContractBackend struct {
 
 // NewContractBackend creates a new native contract backend using an existing
 // Etheruem object.
-func NewContractBackend(eth *Ethereum) *ContractBackend {
+func NewContractBackend(apiBackend ethapi.Backend) *ContractBackend {
 	return &ContractBackend{
-		eapi:  ethapi.NewPublicEthereumAPI(eth.apiBackend, nil, nil),
-		bcapi: ethapi.NewPublicBlockChainAPI(eth.apiBackend),
-		txapi: ethapi.NewPublicTransactionPoolAPI(eth.apiBackend),
+		eapi:  ethapi.NewPublicEthereumAPI(apiBackend),
+		bcapi: ethapi.NewPublicBlockChainAPI(apiBackend),
+		txapi: ethapi.NewPublicTransactionPoolAPI(apiBackend, new(ethapi.AddrLocker)),
 	}
 }
 
-// HasCode implements bind.ContractVerifier.HasCode by retrieving any code associated
-// with the contract from the local API, and checking its size.
-func (b *ContractBackend) HasCode(ctx context.Context, contract common.Address, pending bool) (bool, error) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	block := rpc.LatestBlockNumber
-	if pending {
-		block = rpc.PendingBlockNumber
-	}
-	out, err := b.bcapi.GetCode(ctx, contract, block)
-	return len(common.FromHex(out)) > 0, err
+// CodeAt retrieves any code associated with the contract from the local API.
+func (b *ContractBackend) CodeAt(ctx context.Context, contract common.Address, blockNum *big.Int) ([]byte, error) {
+	return b.bcapi.GetCode(ctx, contract, toBlockNumber(blockNum))
+}
+
+// CodeAt retrieves any code associated with the contract from the local API.
+func (b *ContractBackend) PendingCodeAt(ctx context.Context, contract common.Address) ([]byte, error) {
+	return b.bcapi.GetCode(ctx, contract, rpc.PendingBlockNumber)
 }
 
 // ContractCall implements bind.ContractCaller executing an Ethereum contract
 // call with the specified data as the input. The pending flag requests execution
 // against the pending block, not the stable head of the chain.
-func (b *ContractBackend) ContractCall(ctx context.Context, contract common.Address, data []byte, pending bool) ([]byte, error) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	// Convert the input args to the API spec
+func (b *ContractBackend) CallContract(ctx context.Context, msg ethereum.CallMsg, blockNum *big.Int) ([]byte, error) {
+	out, err := b.bcapi.Call(ctx, toCallArgs(msg), toBlockNumber(blockNum))
+	return out, err
+}
+
+// ContractCall implements bind.ContractCaller executing an Ethereum contract
+// call with the specified data as the input. The pending flag requests execution
+// against the pending block, not the stable head of the chain.
+func (b *ContractBackend) PendingCallContract(ctx context.Context, msg ethereum.CallMsg) ([]byte, error) {
+	out, err := b.bcapi.Call(ctx, toCallArgs(msg), rpc.PendingBlockNumber)
+	return out, err
+}
+
+func toCallArgs(msg ethereum.CallMsg) ethapi.CallArgs {
 	args := ethapi.CallArgs{
-		To:   &contract,
-		Data: common.ToHex(data),
+		To:   msg.To,
+		From: msg.From,
+		Data: msg.Data,
 	}
-	block := rpc.LatestBlockNumber
-	if pending {
-		block = rpc.PendingBlockNumber
+	if msg.Gas != nil {
+		args.Gas = hexutil.Big(*msg.Gas)
 	}
-	// Execute the call and convert the output back to Go types
-	out, err := b.bcapi.Call(ctx, args, block)
-	return common.FromHex(out), err
+	if msg.GasPrice != nil {
+		args.GasPrice = hexutil.Big(*msg.GasPrice)
+	}
+	if msg.Value != nil {
+		args.Value = hexutil.Big(*msg.Value)
+	}
+	return args
+}
+
+func toBlockNumber(num *big.Int) rpc.BlockNumber {
+	if num == nil {
+		return rpc.LatestBlockNumber
+	}
+	return rpc.BlockNumber(num.Int64())
 }
 
 // PendingAccountNonce implements bind.ContractTransactor retrieving the current
 // pending nonce associated with an account.
-func (b *ContractBackend) PendingAccountNonce(ctx context.Context, account common.Address) (uint64, error) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
+func (b *ContractBackend) PendingNonceAt(ctx context.Context, account common.Address) (nonce uint64, err error) {
 	out, err := b.txapi.GetTransactionCount(ctx, account, rpc.PendingBlockNumber)
-	return out.Uint64(), err
+	if out != nil {
+		nonce = uint64(*out)
+	}
+	return nonce, err
 }
 
 // SuggestGasPrice implements bind.ContractTransactor retrieving the currently
 // suggested gas price to allow a timely execution of a transaction.
 func (b *ContractBackend) SuggestGasPrice(ctx context.Context) (*big.Int, error) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
 	return b.eapi.GasPrice(ctx)
 }
 
@@ -109,26 +124,15 @@ func (b *ContractBackend) SuggestGasPrice(ctx context.Context) (*big.Int, error)
 // the backend blockchain. There is no guarantee that this is the true gas limit
 // requirement as other transactions may be added or removed by miners, but it
 // should provide a basis for setting a reasonable default.
-func (b *ContractBackend) EstimateGasLimit(ctx context.Context, sender common.Address, contract *common.Address, value *big.Int, data []byte) (*big.Int, error) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	out, err := b.bcapi.EstimateGas(ctx, ethapi.CallArgs{
-		From:  sender,
-		To:    contract,
-		Value: *rpc.NewHexNumber(value),
-		Data:  common.ToHex(data),
-	})
-	return out.BigInt(), err
+func (b *ContractBackend) EstimateGas(ctx context.Context, msg ethereum.CallMsg) (*big.Int, error) {
+	out, err := b.bcapi.EstimateGas(ctx, toCallArgs(msg))
+	return out.ToInt(), err
 }
 
 // SendTransaction implements bind.ContractTransactor injects the transaction
 // into the pending pool for execution.
 func (b *ContractBackend) SendTransaction(ctx context.Context, tx *types.Transaction) error {
-	if ctx == nil {
-		ctx = context.Background()
-	}
 	raw, _ := rlp.EncodeToBytes(tx)
-	_, err := b.txapi.SendRawTransaction(ctx, common.ToHex(raw))
+	_, err := b.txapi.SendRawTransaction(ctx, raw)
 	return err
 }

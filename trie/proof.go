@@ -23,8 +23,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto/sha3"
-	"github.com/ethereum/go-ethereum/logger"
-	"github.com/ethereum/go-ethereum/logger/glog"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
@@ -39,12 +38,12 @@ import (
 // absence of the key.
 func (t *Trie) Prove(key []byte) []rlp.RawValue {
 	// Collect all nodes on the path to key.
-	key = compactHexDecode(key)
+	key = keybytesToHex(key)
 	nodes := []node{}
 	tn := t.root
 	for len(key) > 0 && tn != nil {
 		switch n := tn.(type) {
-		case shortNode:
+		case *shortNode:
 			if len(key) < len(n.Key) || !bytes.Equal(n.Key, key[:len(n.Key)]) {
 				// The trie doesn't contain the key.
 				tn = nil
@@ -53,32 +52,28 @@ func (t *Trie) Prove(key []byte) []rlp.RawValue {
 				key = key[len(n.Key):]
 			}
 			nodes = append(nodes, n)
-		case fullNode:
+		case *fullNode:
 			tn = n.Children[key[0]]
 			key = key[1:]
 			nodes = append(nodes, n)
 		case hashNode:
 			var err error
-			tn, err = t.resolveHash(n, nil, nil)
+			tn, err = t.resolveHash(n, nil)
 			if err != nil {
-				if glog.V(logger.Error) {
-					glog.Errorf("Unhandled trie error: %v", err)
-				}
+				log.Error(fmt.Sprintf("Unhandled trie error: %v", err))
 				return nil
 			}
 		default:
 			panic(fmt.Sprintf("%T: invalid node: %v", tn, tn))
 		}
 	}
-	if t.hasher == nil {
-		t.hasher = newHasher()
-	}
+	hasher := newHasher(0, 0)
 	proof := make([]rlp.RawValue, 0, len(nodes))
 	for i, n := range nodes {
 		// Don't bother checking for errors here since hasher panics
 		// if encoding doesn't work and we're not writing to any database.
-		n, _, _ = t.hasher.hashChildren(n, nil)
-		hn, _ := t.hasher.store(n, nil, false)
+		n, _, _ = hasher.hashChildren(n, nil)
+		hn, _ := hasher.store(n, nil, false)
 		if _, ok := hn.(hashNode); ok || i == 0 {
 			// If the node's database encoding is a hash (or is the
 			// root node), it becomes a proof element.
@@ -94,7 +89,7 @@ func (t *Trie) Prove(key []byte) []rlp.RawValue {
 // returns an error if the proof contains invalid trie nodes or the
 // wrong value.
 func VerifyProof(rootHash common.Hash, key []byte, proof []rlp.RawValue) (value []byte, err error) {
-	key = compactHexDecode(key)
+	key = keybytesToHex(key)
 	sha := sha3.NewKeccak256()
 	wantHash := rootHash.Bytes()
 	for i, buf := range proof {
@@ -103,7 +98,7 @@ func VerifyProof(rootHash common.Hash, key []byte, proof []rlp.RawValue) (value 
 		if !bytes.Equal(sha.Sum(nil), wantHash) {
 			return nil, fmt.Errorf("bad proof node %d: hash mismatch", i)
 		}
-		n, err := decodeNode(wantHash, buf)
+		n, err := decodeNode(wantHash, buf, 0)
 		if err != nil {
 			return nil, fmt.Errorf("bad proof node %d: %v", i, err)
 		}
@@ -130,24 +125,25 @@ func VerifyProof(rootHash common.Hash, key []byte, proof []rlp.RawValue) (value 
 }
 
 func get(tn node, key []byte) ([]byte, node) {
-	for len(key) > 0 {
+	for {
 		switch n := tn.(type) {
-		case shortNode:
+		case *shortNode:
 			if len(key) < len(n.Key) || !bytes.Equal(n.Key, key[:len(n.Key)]) {
 				return nil, nil
 			}
 			tn = n.Val
 			key = key[len(n.Key):]
-		case fullNode:
+		case *fullNode:
 			tn = n.Children[key[0]]
 			key = key[1:]
 		case hashNode:
 			return key, n
 		case nil:
 			return key, nil
+		case valueNode:
+			return nil, n
 		default:
 			panic(fmt.Sprintf("%T: invalid node: %v", tn, tn))
 		}
 	}
-	return nil, tn.(valueNode)
 }

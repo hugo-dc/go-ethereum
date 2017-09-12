@@ -17,24 +17,19 @@
 package rpc
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"runtime"
+	"strings"
+	"sync"
 	"sync/atomic"
 
-	"github.com/ethereum/go-ethereum/logger"
-	"github.com/ethereum/go-ethereum/logger/glog"
-	"golang.org/x/net/context"
+	"github.com/ethereum/go-ethereum/log"
 	"gopkg.in/fatih/set.v0"
 )
 
-const (
-	notificationBufferSize = 10000 // max buffered notifications before codec is closed
-
-	MetadataApi     = "rpc"
-	DefaultIPCApis  = "admin,debug,eth,miner,net,personal,shh,txpool,web3"
-	DefaultHTTPApis = "eth,net,web3"
-)
+const MetadataApi = "rpc"
 
 // CodecOption specifies which type of messages this codec supports
 type CodecOption int
@@ -50,10 +45,9 @@ const (
 // NewServer will create a new server instance with no registered handlers.
 func NewServer() *Server {
 	server := &Server{
-		services:      make(serviceRegistry),
-		subscriptions: make(subscriptionRegistry),
-		codecs:        set.New(),
-		run:           1,
+		services: make(serviceRegistry),
+		codecs:   set.New(),
+		run:      1,
 	}
 
 	// register a default service which will provide meta information about the RPC service such as the services and
@@ -98,43 +92,31 @@ func (s *Server) RegisterName(name string, rcvr interface{}) error {
 		return fmt.Errorf("%s is not exported", reflect.Indirect(rcvrVal).Type().Name())
 	}
 
+	methods, subscriptions := suitableCallbacks(rcvrVal, svc.typ)
+
 	// already a previous service register under given sname, merge methods/subscriptions
 	if regsvc, present := s.services[name]; present {
-		methods, subscriptions := suitableCallbacks(rcvrVal, svc.typ)
 		if len(methods) == 0 && len(subscriptions) == 0 {
 			return fmt.Errorf("Service %T doesn't have any suitable methods/subscriptions to expose", rcvr)
 		}
-
 		for _, m := range methods {
 			regsvc.callbacks[formatName(m.method.Name)] = m
 		}
 		for _, s := range subscriptions {
 			regsvc.subscriptions[formatName(s.method.Name)] = s
 		}
-
 		return nil
 	}
 
 	svc.name = name
-	svc.callbacks, svc.subscriptions = suitableCallbacks(rcvrVal, svc.typ)
+	svc.callbacks, svc.subscriptions = methods, subscriptions
 
 	if len(svc.callbacks) == 0 && len(svc.subscriptions) == 0 {
 		return fmt.Errorf("Service %T doesn't have any suitable methods/subscriptions to expose", rcvr)
 	}
 
 	s.services[svc.name] = svc
-
 	return nil
-}
-
-// hasOption returns true if option is included in options, otherwise false
-func hasOption(option CodecOption, options []CodecOption) bool {
-	for _, o := range options {
-		if option == o {
-			return true
-		}
-	}
-	return false
 }
 
 // serveRequest will reads requests from the codec, calls the RPC callback and
@@ -144,19 +126,18 @@ func hasOption(option CodecOption, options []CodecOption) bool {
 // requests until the codec returns an error when reading a request (in most cases
 // an EOF). It executes requests in parallel when singleShot is false.
 func (s *Server) serveRequest(codec ServerCodec, singleShot bool, options CodecOption) error {
+	var pend sync.WaitGroup
+
 	defer func() {
 		if err := recover(); err != nil {
 			const size = 64 << 10
 			buf := make([]byte, size)
 			buf = buf[:runtime.Stack(buf, false)]
-			glog.Errorln(string(buf))
+			log.Error(string(buf))
 		}
-
 		s.codecsMu.Lock()
 		s.codecs.Remove(codec)
 		s.codecsMu.Unlock()
-
-		return
 	}()
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -166,7 +147,7 @@ func (s *Server) serveRequest(codec ServerCodec, singleShot bool, options CodecO
 	// to send notification to clients. It is thight to the codec/connection. If the
 	// connection is closed the notifier will stop and cancels all active subscriptions.
 	if options&OptionSubscriptions == OptionSubscriptions {
-		ctx = context.WithValue(ctx, notifierKey{}, newBufferedNotifier(codec, notificationBufferSize))
+		ctx = context.WithValue(ctx, notifierKey{}, newNotifier(codec))
 	}
 	s.codecsMu.Lock()
 	if atomic.LoadInt32(&s.run) != 1 { // server stopped
@@ -180,8 +161,13 @@ func (s *Server) serveRequest(codec ServerCodec, singleShot bool, options CodecO
 	for atomic.LoadInt32(&s.run) == 1 {
 		reqs, batch, err := s.readRequest(codec)
 		if err != nil {
-			glog.V(logger.Debug).Infof("read error %v\n", err)
-			codec.Write(codec.CreateErrorResponse(nil, err))
+			// If a parsing error occurred, send an error
+			if err.Error() != "EOF" {
+				log.Debug(fmt.Sprintf("read error %v\n", err))
+				codec.Write(codec.CreateErrorResponse(nil, err))
+			}
+			// Error or end of stream, wait for requests and tear down
+			pend.Wait()
 			return nil
 		}
 
@@ -200,20 +186,27 @@ func (s *Server) serveRequest(codec ServerCodec, singleShot bool, options CodecO
 			}
 			return nil
 		}
-
-		if singleShot && batch {
-			s.execBatch(ctx, codec, reqs)
+		// If a single shot request is executing, run and return immediately
+		if singleShot {
+			if batch {
+				s.execBatch(ctx, codec, reqs)
+			} else {
+				s.exec(ctx, codec, reqs[0])
+			}
 			return nil
-		} else if singleShot && !batch {
-			s.exec(ctx, codec, reqs[0])
-			return nil
-		} else if !singleShot && batch {
-			go s.execBatch(ctx, codec, reqs)
-		} else {
-			go s.exec(ctx, codec, reqs[0])
 		}
-	}
+		// For multi-shot connections, start a goroutine to serve and loop back
+		pend.Add(1)
 
+		go func(reqs []*serverRequest, batch bool) {
+			defer pend.Done()
+			if batch {
+				s.execBatch(ctx, codec, reqs)
+			} else {
+				s.exec(ctx, codec, reqs[0])
+			}
+		}(reqs, batch)
+	}
 	return nil
 }
 
@@ -236,7 +229,7 @@ func (s *Server) ServeSingleRequest(codec ServerCodec, options CodecOption) {
 // close all codecs which will cancel pending requests/subscriptions.
 func (s *Server) Stop() {
 	if atomic.CompareAndSwapInt32(&s.run, 1, 0) {
-		glog.V(logger.Debug).Infoln("RPC Server shutdown initiatied")
+		log.Debug("RPC Server shutdown initiatied")
 		s.codecsMu.Lock()
 		defer s.codecsMu.Unlock()
 		s.codecs.Each(func(c interface{}) bool {
@@ -247,7 +240,7 @@ func (s *Server) Stop() {
 }
 
 // createSubscription will call the subscription callback and returns the subscription id or error.
-func (s *Server) createSubscription(ctx context.Context, c ServerCodec, req *serverRequest) (string, error) {
+func (s *Server) createSubscription(ctx context.Context, c ServerCodec, req *serverRequest) (ID, error) {
 	// subscription have as first argument the context following optional arguments
 	args := []reflect.Value{req.callb.rcvr, reflect.ValueOf(ctx)}
 	args = append(args, req.args...)
@@ -257,7 +250,7 @@ func (s *Server) createSubscription(ctx context.Context, c ServerCodec, req *ser
 		return "", reply[1].Interface().(error)
 	}
 
-	return reply[0].Interface().(Subscription).ID(), nil
+	return reply[0].Interface().(*Subscription).ID, nil
 }
 
 // handle executes a request and returns the response from the callback.
@@ -273,8 +266,8 @@ func (s *Server) handle(ctx context.Context, codec ServerCodec, req *serverReque
 				return codec.CreateErrorResponse(&req.id, &callbackError{ErrNotificationsUnsupported.Error()}), nil
 			}
 
-			subid := req.args[0].String()
-			if err := notifier.Unsubscribe(subid); err != nil {
+			subid := ID(req.args[0].String())
+			if err := notifier.unsubscribe(subid); err != nil {
 				return codec.CreateErrorResponse(&req.id, &callbackError{err.Error()}), nil
 			}
 
@@ -292,7 +285,7 @@ func (s *Server) handle(ctx context.Context, codec ServerCodec, req *serverReque
 		// active the subscription after the sub id was successfully sent to the client
 		activateSub := func() {
 			notifier, _ := NotifierFromContext(ctx)
-			notifier.(*bufferedNotifier).activate(subid)
+			notifier.activate(subid, req.svcname)
 		}
 
 		return codec.CreateResponse(req.id, subid), activateSub
@@ -341,7 +334,7 @@ func (s *Server) exec(ctx context.Context, codec ServerCodec, req *serverRequest
 	}
 
 	if err := codec.Write(response); err != nil {
-		glog.V(logger.Error).Infof("%v\n", err)
+		log.Error(fmt.Sprintf("%v\n", err))
 		codec.Close()
 	}
 
@@ -368,11 +361,11 @@ func (s *Server) execBatch(ctx context.Context, codec ServerCodec, requests []*s
 	}
 
 	if err := codec.Write(responses); err != nil {
-		glog.V(logger.Error).Infof("%v\n", err)
+		log.Error(fmt.Sprintf("%v\n", err))
 		codec.Close()
 	}
 
-	// when request holds one of more subscribe requests this allows these subscriptions to be actived
+	// when request holds one of more subscribe requests this allows these subscriptions to be activated
 	for _, c := range callbacks {
 		c()
 	}
@@ -399,7 +392,7 @@ func (s *Server) readRequest(codec ServerCodec) ([]*serverRequest, bool, Error) 
 			continue
 		}
 
-		if r.isPubSub && r.method == unsubscribeMethod {
+		if r.isPubSub && strings.HasSuffix(r.method, unsubscribeMethodSuffix) {
 			requests[i] = &serverRequest{id: r.id, isUnsubscribe: true}
 			argTypes := []reflect.Type{reflect.TypeOf("")} // expect subscription id as first arg
 			if args, err := codec.ParseRequestArguments(argTypes, r.params); err == nil {
@@ -428,7 +421,7 @@ func (s *Server) readRequest(codec ServerCodec) ([]*serverRequest, bool, Error) 
 					}
 				}
 			} else {
-				requests[i] = &serverRequest{id: r.id, err: &methodNotFoundError{subscribeMethod, r.method}}
+				requests[i] = &serverRequest{id: r.id, err: &methodNotFoundError{r.method, r.method}}
 			}
 			continue
 		}
