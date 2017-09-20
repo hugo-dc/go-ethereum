@@ -148,6 +148,10 @@ func (t *StateTest) Run(subtest StateSubtest, vmconfig vm.Config) (*state.StateD
 		return statedb, fmt.Errorf("post state logs hash mismatch: got %x, want %x", logs, post.Logs)
 	}
 	root, _ := statedb.CommitTo(db, config.IsEIP158(block.Number()))
+
+	// print state root for evmlab tracing
+	fmt.Printf("{\"stateRoot\": \"%x\"}\n", root)
+
 	if root != common.Hash(post.Root) {
 		return statedb, fmt.Errorf("post state root mismatch: got %x, want %x", root, post.Root)
 	}
