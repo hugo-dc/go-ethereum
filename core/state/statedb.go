@@ -666,10 +666,10 @@ func (s *StateDB) PruneTries() {
 }
 
 func (s *StateDB) PrintMemStats() {
-	log.Info("Nodes in the list:", s.nodeList.Len())
+	log.Info("State trie", "nodes", s.nodeList.Len())
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
-	log.Info("Alloc = ", m.Alloc / 1024, " TotalAlloc = ", m.TotalAlloc / 1024, " Sys = ", m.Sys / 1024, "NumGC = ", m.NumGC)
+	log.Info("Memory", "alloc", int(m.Alloc / 1024), "totalAlloc", int(m.TotalAlloc / 1024), "sys", int(m.Sys / 1024), "numGC", int(m.NumGC))
 }
 
 func (s *StateDB) CleanForNextBlock(blockNr uint64) {
