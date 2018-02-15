@@ -490,7 +490,9 @@ func (t *Trie) convertToShortNode(dbr DatabaseReader, key []byte, keyStart int, 
 		copy(rkey, key)
 		rkey[keyStart] = byte(pos)
 		for i := keyStart + 1; i < len(key); i++ {
-			rkey[i] = 0
+			if rkey[i] != 16 {
+				rkey[i] = 0
+			}
 		}
 		cnode, err := t.resolve(dbr, child, rkey, keyStart + 1, blockNr)
 		if err != nil {

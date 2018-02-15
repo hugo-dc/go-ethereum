@@ -955,7 +955,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 		}
 		readBlockNr := parent.NumberU64()
 		if bc.stateDB == nil || readBlockNr == 0 || bc.stateDB.IntermediateRoot(bc.config.IsEIP158(parent.Number())) != parent.Root() {
-			fmt.Printf("Created new StateDB for block %d\n", readBlockNr)
+			log.Info("Created new StateDB for block", readBlockNr)
 			bc.stateDB, err = state.New(parent.Root(), bc.stateCache, readBlockNr)
 			if err != nil {
 				return i, events, coalescedLogs, err
@@ -963,6 +963,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 		} else {
 			bc.stateDB.CleanForNextBlock(readBlockNr)
 		}
+		bc.stateDB.ClearBlock(bc.chainDb, block.NumberU64())
 		// Process block using the parent state as reference point.
 		receipts, logs, usedGas, err := bc.processor.Process(block, bc.stateDB, bc.vmConfig)
 		if err != nil {
@@ -1008,7 +1009,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 			bc.currentBlock = block
 			bc.stateDB.PruneTries()
 			bc.stateDB.PrintMemStats()
-			fmt.Printf("Database size: %d\n", bc.chainDb.Size())
+			log.Info("Database size:", bc.chainDb.Size())
 		}
 		stats.report(chain, i)
 	}

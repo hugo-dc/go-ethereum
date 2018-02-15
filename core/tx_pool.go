@@ -234,7 +234,7 @@ func NewTxPool(config TxPoolConfig, chainconfig *params.ChainConfig, chain block
 	}
 	pool.locals = newAccountSet(pool.signer)
 	pool.priced = newTxPricedList(&pool.all)
-	//pool.reset(nil, chain.CurrentBlock().Header())
+	pool.reset(nil, chain.CurrentBlock().Header())
 
 	// If local transactions and journaling is enabled, load from disk
 	if !config.NoLocals && config.Journal != "" {

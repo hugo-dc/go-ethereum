@@ -1235,7 +1235,7 @@ func TestBlockchainHeaderchainReorgConsistency(t *testing.T) {
 		t.Fatalf("failed to create tester chain: %v", err)
 	}
 	for i := 0; i < len(blocks); i++ {
-		if _, err := chain.InsertChain(blocks[i : i+1]); err != nil {
+		if _, err := chain.InsertChain(blocks[0 : i+1]); err != nil {
 			t.Fatalf("block %d: failed to insert into chain: %v", i, err)
 		}
 		if chain.CurrentBlock().Hash() != chain.CurrentHeader().Hash() {

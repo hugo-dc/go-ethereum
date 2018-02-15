@@ -629,6 +629,7 @@ func (s *StateDB) CommitTo(dbw trie.Database, deleteEmptyObjects bool, writeBloc
 			if err != nil {
 				panic(fmt.Errorf("can't encode object at %x: %v", addr[:], err))
 			}
+			//fmt.Printf("Puts %x %x\n", seckey, suffix)
 			dbw.PutS(AccountsBucket, seckey, suffix, data)
 		}
 	}	
@@ -665,10 +666,10 @@ func (s *StateDB) PruneTries() {
 }
 
 func (s *StateDB) PrintMemStats() {
-	fmt.Printf("Nodes in the list: %d\n", s.nodeList.Len())
+	log.Info("Nodes in the list:", s.nodeList.Len())
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
-	fmt.Printf("Alloc = %v TotalAlloc = %v Sys = %v NumGC = %v\n", m.Alloc / 1024, m.TotalAlloc / 1024, m.Sys / 1024, m.NumGC)
+	log.Info("Alloc = ", m.Alloc / 1024, " TotalAlloc = ", m.TotalAlloc / 1024, " Sys = ", m.Sys / 1024, "NumGC = ", m.NumGC)
 }
 
 func (s *StateDB) CleanForNextBlock(blockNr uint64) {

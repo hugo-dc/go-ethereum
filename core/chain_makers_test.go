@@ -25,6 +25,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethdb"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 )
 
@@ -38,6 +39,12 @@ func ExampleGenerateChain() {
 		addr3   = crypto.PubkeyToAddress(key3.PublicKey)
 		db   = ethdb.NewMemDatabase()
 	)
+
+	h := log.Root().GetHandler()
+	defer func() {
+		log.Root().SetHandler(h)
+	}()
+	log.Root().SetHandler(log.DiscardHandler())
 
 	// Ensure that key1 has some funds in the genesis block.
 	gspec := &Genesis{

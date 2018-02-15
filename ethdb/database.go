@@ -523,12 +523,10 @@ func (m *mutation) walkMem(bucket, key []byte, keybits uint, walker WalkerFunc) 
 	for nextkey := start; nextkey != nil; {
 		from := nextkey
 		nextkey = nil
-		//fmt.Printf("AscendGreaterOrEqual %x %p\n", from, m)
 		m.puts.AscendGreaterOrEqual(&PutItem{bucket: bucket, key: from}, func(i llrb.Item) bool {
 			item := i.(*PutItem)
-			//fmt.Printf("AscendGreaterOrEqual (inner) %x %x %x\n", item.bucket, item.key, item.value)
 			if !bytes.Equal(item.bucket, bucket) {
-				return true
+				return false
 			}
 			if item.value == nil {
 				return true
@@ -606,7 +604,7 @@ func (m *mutation) Walk(bucket, key []byte, keybits uint, walker WalkerFunc) err
 			m.puts.AscendGreaterOrEqual(&PutItem{bucket: bucket, key: from}, func (i llrb.Item) bool {
 				item := i.(*PutItem)
 				if !bytes.Equal(item.bucket, bucket) {
-					return true
+					return false
 				}
 				if item.value == nil {
 					return true
