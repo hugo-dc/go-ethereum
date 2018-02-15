@@ -126,8 +126,9 @@ func (t *StateTest) Run(subtest StateSubtest, vmconfig vm.Config) (*state.StateD
 		return nil, UnsupportedForkError{subtest.Fork}
 	}
 	block, _ := t.genesis(config).ToBlock()
-	db, _ := ethdb.NewMemDatabase()
-	statedb := MakePreState(db, t.json.Pre)
+	readBlockNr := block.Number().Uint64()
+	db := ethdb.NewMemDatabase()
+	statedb := MakePreState(db, t.json.Pre, readBlockNr)
 
 	post := t.json.Post[subtest.Fork][subtest.Index]
 	msg, err := t.json.Tx.toMessage(post)
@@ -147,7 +148,8 @@ func (t *StateTest) Run(subtest StateSubtest, vmconfig vm.Config) (*state.StateD
 	if logs := rlpHash(statedb.Logs()); logs != common.Hash(post.Logs) {
 		return statedb, fmt.Errorf("post state logs hash mismatch: got %x, want %x", logs, post.Logs)
 	}
-	root, _ := statedb.CommitTo(db, config.IsEIP158(block.Number()))
+	statedb.CommitTo(db, config.IsEIP158(block.Number()), readBlockNr + 1)
+	root := statedb.IntermediateRoot(config.IsEIP158(block.Number()))
 	if root != common.Hash(post.Root) {
 		return statedb, fmt.Errorf("post state root mismatch: got %x, want %x", root, post.Root)
 	}
@@ -158,9 +160,9 @@ func (t *StateTest) gasLimit(subtest StateSubtest) uint64 {
 	return t.json.Tx.GasLimit[t.json.Post[subtest.Fork][subtest.Index].Indexes.Gas]
 }
 
-func MakePreState(db ethdb.Database, accounts core.GenesisAlloc) *state.StateDB {
+func MakePreState(db ethdb.Database, accounts core.GenesisAlloc, blockNr uint64) *state.StateDB {
 	sdb := state.NewDatabase(db)
-	statedb, _ := state.New(common.Hash{}, sdb)
+	statedb, _ := state.New(common.Hash{}, sdb, blockNr)
 	for addr, a := range accounts {
 		statedb.SetCode(addr, a.Code)
 		statedb.SetNonce(addr, a.Nonce)
@@ -170,8 +172,9 @@ func MakePreState(db ethdb.Database, accounts core.GenesisAlloc) *state.StateDB 
 		}
 	}
 	// Commit and re-open to start with a clean state.
-	root, _ := statedb.CommitTo(db, false)
-	statedb, _ = state.New(root, sdb)
+	statedb.CommitTo(db, false, blockNr + 1)
+	root := statedb.IntermediateRoot(false)
+	statedb, _ = state.New(root, sdb, blockNr)
 	return statedb
 }
 

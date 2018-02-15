@@ -99,8 +99,8 @@ func runCmd(ctx *cli.Context) error {
 		_, statedb = gen.ToBlock()
 		chainConfig = gen.Config
 	} else {
-		db, _ := ethdb.NewMemDatabase()
-		statedb, _ = state.New(common.Hash{}, state.NewDatabase(db))
+		db := ethdb.NewMemDatabase()
+		statedb, _ = state.New(common.Hash{}, state.NewDatabase(db), 0)
 	}
 	if ctx.GlobalString(SenderFlag.Name) != "" {
 		sender = common.HexToAddress(ctx.GlobalString(SenderFlag.Name))
@@ -185,7 +185,7 @@ func runCmd(ctx *cli.Context) error {
 	var leftOverGas uint64
 	if ctx.GlobalBool(CreateFlag.Name) {
 		input := append(code, common.Hex2Bytes(ctx.GlobalString(InputFlag.Name))...)
-		ret, _, leftOverGas, err = runtime.Create(input, &runtimeConfig)
+		ret, _, leftOverGas, err = runtime.Create(input, &runtimeConfig, 0)
 	} else {
 		if len(code) > 0 {
 			statedb.SetCode(receiver, code)
@@ -196,7 +196,7 @@ func runCmd(ctx *cli.Context) error {
 
 	if ctx.GlobalBool(DumpFlag.Name) {
 		statedb.IntermediateRoot(true)
-		fmt.Println(string(statedb.Dump()))
+		fmt.Println(string(statedb.Dump(0)))
 	}
 
 	if memProfilePath := ctx.GlobalString(MemProfileFlag.Name); memProfilePath != "" {

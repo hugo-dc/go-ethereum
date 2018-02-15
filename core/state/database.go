@@ -18,7 +18,6 @@ package state
 
 import (
 	"fmt"
-	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethdb"
@@ -27,7 +26,10 @@ import (
 )
 
 // Trie cache generation limit after which to evic trie nodes from memory.
-var MaxTrieCacheGen = uint16(120)
+var MaxTrieCacheGen = uint32(4*1024*1024)
+
+var AccountsBucket = []byte("AT")
+var CodeBucket = []byte("CODE")
 
 const (
 	// Number of past tries to keep. This value is chosen such that
@@ -44,75 +46,53 @@ type Database interface {
 	// OpenTrie opens the main account trie.
 	// OpenStorageTrie opens the storage trie of an account.
 	OpenTrie(root common.Hash) (Trie, error)
-	OpenStorageTrie(addrHash, root common.Hash) (Trie, error)
+	OpenStorageTrie(addr common.Address, root common.Hash) (Trie, error)
 	// Accessing contract code:
 	ContractCode(addrHash, codeHash common.Hash) ([]byte, error)
 	ContractCodeSize(addrHash, codeHash common.Hash) (int, error)
 	// CopyTrie returns an independent copy of the given trie.
 	CopyTrie(Trie) Trie
+	TrieDb() ethdb.Getter
 }
 
 // Trie is a Ethereum Merkle Trie.
 type Trie interface {
-	TryGet(key []byte) ([]byte, error)
-	TryUpdate(key, value []byte) error
-	TryDelete(key []byte) error
-	CommitTo(trie.DatabaseWriter) (common.Hash, error)
+	TryGet(dbr trie.DatabaseReader, key []byte, blockNr uint64) ([]byte, error)
+	TryUpdate(dbr trie.DatabaseReader, key, value []byte, blockNr uint64) error
+	TryDelete(dbr trie.DatabaseReader, key []byte, blockNr uint64) error
+	CommitPreimages(dbw trie.DatabaseWriter) error
 	Hash() common.Hash
-	NodeIterator(startKey []byte) trie.NodeIterator
-	GetKey([]byte) []byte // TODO(fjl): remove this when SecureTrie is removed
+	NodeIterator(dbr trie.DatabaseReader, startKey []byte, blockNr uint64) trie.NodeIterator
+	HashKey([]byte) []byte
+	GetKey(trie.DatabaseReader, []byte) []byte // TODO(fjl): remove this when SecureTrie is removed
+	PrintTrie()
+	TryPrune() (int, bool, error)
+	CountOccupancies([]int)
+	MakeListed(*trie.List)
 }
 
 // NewDatabase creates a backing store for state. The returned database is safe for
 // concurrent use and retains cached trie nodes in memory.
-func NewDatabase(db ethdb.Database) Database {
+func NewDatabase(db ethdb.Getter) Database {
 	csc, _ := lru.New(codeSizeCacheSize)
 	return &cachingDB{db: db, codeSizeCache: csc}
 }
 
 type cachingDB struct {
-	db            ethdb.Database
-	mu            sync.Mutex
-	pastTries     []*trie.SecureTrie
+	db            ethdb.Getter
 	codeSizeCache *lru.Cache
 }
 
 func (db *cachingDB) OpenTrie(root common.Hash) (Trie, error) {
-	db.mu.Lock()
-	defer db.mu.Unlock()
-
-	for i := len(db.pastTries) - 1; i >= 0; i-- {
-		if db.pastTries[i].Hash() == root {
-			return cachedTrie{db.pastTries[i].Copy(), db}, nil
-		}
-	}
-	tr, err := trie.NewSecure(root, db.db, MaxTrieCacheGen)
-	if err != nil {
-		return nil, err
-	}
-	return cachedTrie{tr, db}, nil
+	return trie.NewSecure(root, AccountsBucket)
 }
 
-func (db *cachingDB) pushTrie(t *trie.SecureTrie) {
-	db.mu.Lock()
-	defer db.mu.Unlock()
-
-	if len(db.pastTries) >= maxPastTries {
-		copy(db.pastTries, db.pastTries[1:])
-		db.pastTries[len(db.pastTries)-1] = t
-	} else {
-		db.pastTries = append(db.pastTries, t)
-	}
-}
-
-func (db *cachingDB) OpenStorageTrie(addrHash, root common.Hash) (Trie, error) {
-	return trie.NewSecure(root, db.db, 0)
+func (db *cachingDB) OpenStorageTrie(addr common.Address, root common.Hash) (Trie, error) {
+	return trie.NewSecure(root, addr[:])
 }
 
 func (db *cachingDB) CopyTrie(t Trie) Trie {
 	switch t := t.(type) {
-	case cachedTrie:
-		return cachedTrie{t.SecureTrie.Copy(), db}
 	case *trie.SecureTrie:
 		return t.Copy()
 	default:
@@ -121,7 +101,7 @@ func (db *cachingDB) CopyTrie(t Trie) Trie {
 }
 
 func (db *cachingDB) ContractCode(addrHash, codeHash common.Hash) ([]byte, error) {
-	code, err := db.db.Get(codeHash[:])
+	code, err := db.db.Get(CodeBucket, codeHash[:])
 	if err == nil {
 		db.codeSizeCache.Add(codeHash, len(code))
 	}
@@ -139,16 +119,7 @@ func (db *cachingDB) ContractCodeSize(addrHash, codeHash common.Hash) (int, erro
 	return len(code), err
 }
 
-// cachedTrie inserts its trie into a cachingDB on commit.
-type cachedTrie struct {
-	*trie.SecureTrie
-	db *cachingDB
+func (db *cachingDB) TrieDb() ethdb.Getter {
+	return db.db
 }
 
-func (m cachedTrie) CommitTo(dbw trie.DatabaseWriter) (common.Hash, error) {
-	root, err := m.SecureTrie.CommitTo(dbw)
-	if err == nil {
-		m.db.pushTrie(m.SecureTrie)
-	}
-	return root, err
-}

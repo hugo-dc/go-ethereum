@@ -89,8 +89,16 @@ func hexToKeybytes(hex []byte) []byte {
 }
 
 func decodeNibbles(nibbles []byte, bytes []byte) {
-	for bi, ni := 0, 0; ni < len(nibbles); bi, ni = bi+1, ni+2 {
-		bytes[bi] = nibbles[ni]<<4 | nibbles[ni+1]
+	if hasTerm(nibbles) {
+		nibbles = nibbles[:len(nibbles)-1]
+	}
+	nl := len(nibbles)
+	for bi, ni := 0, 0; ni < nl; bi, ni = bi+1, ni+2 {
+		if ni == nl - 1 {
+			bytes[bi] = (bytes[bi]&^0xf0) | nibbles[ni]<<4
+		} else {
+			bytes[bi] = nibbles[ni]<<4 | nibbles[ni+1]
+		}
 	}
 }
 

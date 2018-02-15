@@ -42,7 +42,7 @@ type BlockGen struct {
 	i           int
 	parent      *types.Block
 	chain       []*types.Block
-	chainReader consensus.ChainReader
+	blockchain  *BlockChain
 	header      *types.Header
 	statedb     *state.StateDB
 
@@ -86,7 +86,7 @@ func (b *BlockGen) AddTx(tx *types.Transaction) {
 		b.SetCoinbase(common.Address{})
 	}
 	b.statedb.Prepare(tx.Hash(), common.Hash{}, len(b.txs))
-	receipt, _, err := ApplyTransaction(b.config, nil, &b.header.Coinbase, b.gasPool, b.statedb, b.header, tx, &b.header.GasUsed, vm.Config{})
+	receipt, _, err := ApplyTransaction(b.config, b.blockchain, &b.header.Coinbase, b.gasPool, b.statedb, b.header, tx, &b.header.GasUsed, vm.Config{})
 	if err != nil {
 		panic(err)
 	}
@@ -143,7 +143,7 @@ func (b *BlockGen) OffsetTime(seconds int64) {
 	if b.header.Time.Cmp(b.parent.Header().Time) <= 0 {
 		panic("block time out of range")
 	}
-	b.header.Difficulty = b.engine.CalcDifficulty(b.chainReader, b.header.Time.Uint64(), b.parent.Header())
+	b.header.Difficulty = b.engine.CalcDifficulty(b.blockchain, b.header.Time.Uint64(), b.parent.Header())
 }
 
 // GenerateChain creates a chain of n blocks. The first block's
@@ -169,8 +169,8 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 		blockchain, _ := NewBlockChain(db, config, engine, vm.Config{})
 		defer blockchain.Stop()
 
-		b := &BlockGen{i: i, parent: parent, chain: blocks, chainReader: blockchain, statedb: statedb, config: config, engine: engine}
-		b.header = makeHeader(b.chainReader, parent, statedb, b.engine)
+		b := &BlockGen{i: i, parent: parent, chain: blocks, blockchain: blockchain, statedb: statedb, config: config, engine: engine}
+		b.header = makeHeader(b.blockchain, parent, statedb, b.engine)
 
 		// Mutate the state and block according to any hard-fork specs
 		if daoBlock := config.DAOForkBlock; daoBlock != nil {
@@ -190,9 +190,9 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 		}
 
 		if b.engine != nil {
-			block, _ := b.engine.Finalize(b.chainReader, b.header, statedb, b.txs, b.uncles, b.receipts)
+			block, _ := b.engine.Finalize(b.blockchain, b.header, statedb, b.txs, b.uncles, b.receipts)
 			// Write state changes to db
-			_, err := statedb.CommitTo(db, config.IsEIP158(b.header.Number))
+			err := statedb.CommitTo(db, config.IsEIP158(b.header.Number), b.header.Number.Uint64())
 			if err != nil {
 				panic(fmt.Sprintf("state write error: %v", err))
 			}
@@ -201,7 +201,11 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 		return nil, nil
 	}
 	for i := 0; i < n; i++ {
-		statedb, err := state.New(parent.Root(), state.NewDatabase(db))
+		statedb, err := state.New(parent.Root(), state.NewDatabase(db), parent.Number().Uint64())
+		if err != nil {
+			panic(err)
+		}
+		err = statedb.ClearBlock(db, parent.NumberU64()+1)
 		if err != nil {
 			panic(err)
 		}
@@ -243,7 +247,7 @@ func makeHeader(chain consensus.ChainReader, parent *types.Block, state *state.S
 func newCanonical(engine consensus.Engine, n int, full bool) (ethdb.Database, *BlockChain, error) {
 	// Initialize a fresh chain with only a genesis block
 	gspec := new(Genesis)
-	db, _ := ethdb.NewMemDatabase()
+	db := ethdb.NewMemDatabase()
 	genesis := gspec.MustCommit(db)
 
 	blockchain, _ := NewBlockChain(db, params.AllEthashProtocolChanges, engine, vm.Config{})

@@ -28,7 +28,7 @@ import (
 )
 
 type StateSuite struct {
-	db    *ethdb.MemDatabase
+	db    ethdb.Database
 	state *StateDB
 }
 
@@ -87,8 +87,8 @@ func (s *StateSuite) TestDump(c *checker.C) {
 }
 
 func (s *StateSuite) SetUpTest(c *checker.C) {
-	s.db, _ = ethdb.NewMemDatabase()
-	s.state, _ = New(common.Hash{}, NewDatabase(s.db))
+	s.db = ethdb.NewMemDatabase()
+	s.state, _ = New(common.Hash{}, NewDatabase(s.db), 0)
 }
 
 func (s *StateSuite) TestNull(c *checker.C) {
@@ -133,8 +133,8 @@ func (s *StateSuite) TestSnapshotEmpty(c *checker.C) {
 // use testing instead of checker because checker does not support
 // printing/logging in tests (-check.vv does not work)
 func TestSnapshot2(t *testing.T) {
-	db, _ := ethdb.NewMemDatabase()
-	state, _ := New(common.Hash{}, NewDatabase(db))
+	db := ethdb.NewMemDatabase()
+	state, _ := New(common.Hash{}, NewDatabase(db), 0)
 
 	stateobjaddr0 := toAddr([]byte("so0"))
 	stateobjaddr1 := toAddr([]byte("so1"))

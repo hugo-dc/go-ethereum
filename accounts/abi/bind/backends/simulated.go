@@ -65,10 +65,13 @@ type SimulatedBackend struct {
 // NewSimulatedBackend creates a new binding backend using a simulated blockchain
 // for testing purposes.
 func NewSimulatedBackend(alloc core.GenesisAlloc) *SimulatedBackend {
-	database, _ := ethdb.NewMemDatabase()
+	database := ethdb.NewMemDatabase()
 	genesis := core.Genesis{Config: params.AllEthashProtocolChanges, Alloc: alloc}
 	genesis.MustCommit(database)
-	blockchain, _ := core.NewBlockChain(database, genesis.Config, ethash.NewFaker(), vm.Config{})
+	blockchain, err := core.NewBlockChain(database, genesis.Config, ethash.NewFaker(), vm.Config{})
+	if err != nil {
+		panic(fmt.Sprintf("%v", err))
+	}
 
 	backend := &SimulatedBackend{
 		database:   database,
@@ -103,7 +106,7 @@ func (b *SimulatedBackend) Rollback() {
 func (b *SimulatedBackend) rollback() {
 	blocks, _ := core.GenerateChain(b.config, b.blockchain.CurrentBlock(), ethash.NewFaker(), b.database, 1, func(int, *core.BlockGen) {})
 	b.pendingBlock = blocks[0]
-	b.pendingState, _ = state.New(b.pendingBlock.Root(), state.NewDatabase(b.database))
+	b.pendingState, _ = state.New(b.pendingBlock.Root(), state.NewDatabase(b.database), b.pendingBlock.NumberU64())
 }
 
 // CodeAt returns the code associated with a certain account in the blockchain.
@@ -310,7 +313,7 @@ func (b *SimulatedBackend) SendTransaction(ctx context.Context, tx *types.Transa
 		block.AddTx(tx)
 	})
 	b.pendingBlock = blocks[0]
-	b.pendingState, _ = state.New(b.pendingBlock.Root(), state.NewDatabase(b.database))
+	b.pendingState, _ = state.New(b.pendingBlock.Root(), state.NewDatabase(b.database), b.pendingBlock.NumberU64())
 	return nil
 }
 
@@ -387,7 +390,7 @@ func (b *SimulatedBackend) AdjustTime(adjustment time.Duration) error {
 		block.OffsetTime(int64(adjustment.Seconds()))
 	})
 	b.pendingBlock = blocks[0]
-	b.pendingState, _ = state.New(b.pendingBlock.Root(), state.NewDatabase(b.database))
+	b.pendingState, _ = state.New(b.pendingBlock.Root(), state.NewDatabase(b.database), b.pendingBlock.NumberU64())
 
 	return nil
 }

@@ -35,29 +35,30 @@ import (
 // contains all nodes of the longest existing prefix of the key
 // (at least the root node), ending with the node that proves the
 // absence of the key.
-func (t *Trie) Prove(key []byte, fromLevel uint, proofDb DatabaseWriter) error {
+func (t *Trie) Prove(dbr DatabaseReader, key []byte, fromLevel uint, proofDb DatabaseWriter, blockNr uint64) error {
 	// Collect all nodes on the path to key.
 	key = keybytesToHex(key)
+	pos := 0
 	nodes := []node{}
 	tn := t.root
-	for len(key) > 0 && tn != nil {
+	for pos < len(key) && tn != nil {
 		switch n := tn.(type) {
 		case *shortNode:
-			if len(key) < len(n.Key) || !bytes.Equal(n.Key, key[:len(n.Key)]) {
+			if len(key) - pos < len(n.Key) || !bytes.Equal(n.Key, key[pos:pos+len(n.Key)]) {
 				// The trie doesn't contain the key.
 				tn = nil
 			} else {
 				tn = n.Val
-				key = key[len(n.Key):]
+				pos += len(n.Key)
 			}
 			nodes = append(nodes, n)
 		case *fullNode:
-			tn = n.Children[key[0]]
-			key = key[1:]
+			tn = n.Children[key[pos]]
+			pos++
 			nodes = append(nodes, n)
 		case hashNode:
 			var err error
-			tn, err = t.resolveHash(n, nil)
+			tn, err = t.resolveHash(dbr, n, key, pos, blockNr)
 			if err != nil {
 				log.Error(fmt.Sprintf("Unhandled trie error: %v", err))
 				return err
@@ -66,12 +67,12 @@ func (t *Trie) Prove(key []byte, fromLevel uint, proofDb DatabaseWriter) error {
 			panic(fmt.Sprintf("%T: invalid node: %v", tn, tn))
 		}
 	}
-	hasher := newHasher(0, 0)
+	hasher := newHasher()
 	for i, n := range nodes {
 		// Don't bother checking for errors here since hasher panics
 		// if encoding doesn't work and we're not writing to any database.
-		n, _, _ = hasher.hashChildren(n, nil)
-		hn, _ := hasher.store(n, nil, false)
+		n, _ = hasher.hashChildren(n, nil)
+		hn, _ := hasher.store(n, false) // Since the second argument is nil, no database write will occur
 		if hash, ok := hn.(hashNode); ok || i == 0 {
 			// If the node's database encoding is a hash (or is the
 			// root node), it becomes a proof element.
@@ -82,7 +83,7 @@ func (t *Trie) Prove(key []byte, fromLevel uint, proofDb DatabaseWriter) error {
 				if !ok {
 					hash = crypto.Keccak256(enc)
 				}
-				proofDb.Put(hash, enc)
+				proofDb.Put([]byte{}, hash, enc)
 			}
 		}
 	}
@@ -97,11 +98,11 @@ func VerifyProof(rootHash common.Hash, key []byte, proofDb DatabaseReader) (valu
 	key = keybytesToHex(key)
 	wantHash := rootHash[:]
 	for i := 0; ; i++ {
-		buf, _ := proofDb.Get(wantHash)
+		buf, _ := proofDb.Get([]byte{}, wantHash)
 		if buf == nil {
 			return nil, fmt.Errorf("proof node %d (hash %064x) missing", i, wantHash[:]), i
 		}
-		n, err := decodeNode(wantHash, buf, 0)
+		n, err := decodeNode(wantHash, buf)
 		if err != nil {
 			return nil, fmt.Errorf("bad proof node %d: %v", i, err), i
 		}

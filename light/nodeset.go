@@ -17,11 +17,14 @@
 package light
 
 import (
+	"bytes"
 	"errors"
+	"sort"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/trie"
 )
@@ -41,8 +44,10 @@ func NewNodeSet() *NodeSet {
 	}
 }
 
+var BucketPrefix = []byte("NodeSet")
+
 // Put stores a new node in the set
-func (db *NodeSet) Put(key []byte, value []byte) error {
+func (db *NodeSet) Put(bucket, key []byte, value []byte) error {
 	db.lock.Lock()
 	defer db.lock.Unlock()
 
@@ -53,8 +58,19 @@ func (db *NodeSet) Put(key []byte, value []byte) error {
 	return nil
 }
 
+func (db *NodeSet) PutS(bucket, key, suffix, value []byte) error {
+	composite := make([]byte, len(key) + len(suffix))
+	copy(composite, key)
+	copy(composite[len(key):], suffix)
+	return db.Put(bucket, composite, value)
+}
+
+func (db *NodeSet) DeleteSuffix(suffix []byte) error {
+	return nil
+}
+
 // Get returns a stored node
-func (db *NodeSet) Get(key []byte) ([]byte, error) {
+func (db *NodeSet) Get(bucket, key []byte) ([]byte, error) {
 	db.lock.RLock()
 	defer db.lock.RUnlock()
 
@@ -64,9 +80,36 @@ func (db *NodeSet) Get(key []byte) ([]byte, error) {
 	return nil, errors.New("not found")
 }
 
+func (db *NodeSet) First(bucket, key, suffix []byte) ([]byte, error) {
+	db.lock.RLock()
+	defer db.lock.RUnlock()
+	keys := make([]string, len(db.db))
+	i := 0
+	for k, _ := range db.db {
+		keys[i] = k
+		i++
+	}
+	sort.Strings(keys)
+	start := make([]byte, len(key) + len(suffix))
+	copy(start, key)
+	copy(start[len(key):], suffix)
+	startStr := string(start)
+	index := sort.Search(len(keys), func(i int) bool {
+		return keys[i] >= startStr
+	})
+	if index < len(keys) && bytes.HasPrefix([]byte(keys[index]), key) {
+		return db.db[keys[index]], nil
+	}
+	return nil, errors.New("key not found in range")
+}
+
+func (db *NodeSet) Walk(bucket, key []byte, keybits uint, walker ethdb.WalkerFunc) error {
+	return nil
+}
+
 // Has returns true if the node set contains the given key
-func (db *NodeSet) Has(key []byte) (bool, error) {
-	_, err := db.Get(key)
+func (db *NodeSet) Has(bucket, key []byte) (bool, error) {
+	_, err := db.Get(BucketPrefix, key)
 	return err == nil, nil
 }
 
@@ -104,7 +147,7 @@ func (db *NodeSet) Store(target trie.Database) {
 	defer db.lock.RUnlock()
 
 	for key, value := range db.db {
-		target.Put([]byte(key), value)
+		target.Put(BucketPrefix, []byte(key), value)
 	}
 }
 
@@ -114,7 +157,7 @@ type NodeList []rlp.RawValue
 // Store writes the contents of the list to the given database
 func (n NodeList) Store(db trie.Database) {
 	for _, node := range n {
-		db.Put(crypto.Keccak256(node), node)
+		db.Put(BucketPrefix, crypto.Keccak256(node), node)
 	}
 }
 
@@ -126,8 +169,18 @@ func (n NodeList) NodeSet() *NodeSet {
 }
 
 // Put stores a new node at the end of the list
-func (n *NodeList) Put(key []byte, value []byte) error {
+func (n *NodeList) Put(bucket, key []byte, value []byte) error {
 	*n = append(*n, value)
+	return nil
+}
+
+// Put stores a new node at the end of the list
+func (n *NodeList) PutS(bucket, key, suffix, value []byte) error {
+	*n = append(*n, value)
+	return nil
+}
+
+func (n *NodeList) DeleteSuffix(suffix []byte) error {
 	return nil
 }
 

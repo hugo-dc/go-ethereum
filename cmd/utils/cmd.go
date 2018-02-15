@@ -163,11 +163,12 @@ func ImportChain(chain *core.BlockChain, fn string) error {
 }
 
 func hasAllBlocks(chain *core.BlockChain, bs []*types.Block) bool {
-	for _, b := range bs {
+	//for _, b := range bs {
+	b := bs[len(bs)-1]
 		if !chain.HasBlock(b.Hash(), b.NumberU64()) {
 			return false
 		}
-	}
+	//}
 	return true
 }
 

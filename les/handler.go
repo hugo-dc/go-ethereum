@@ -569,11 +569,12 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		for _, req := range req.Reqs {
 			// Retrieve the requested state entry, stopping if enough was found
 			if header := core.GetHeader(pm.chainDb, req.BHash, core.GetBlockNumber(pm.chainDb, req.BHash)); header != nil {
-				if trie, _ := trie.New(header.Root, pm.chainDb); trie != nil {
-					sdata := trie.Get(req.AccKey)
+				readBlockNr := header.Number.Uint64()-1
+				if trie := trie.New(header.Root, state.AccountsBucket); trie != nil {
+					sdata := trie.Get(pm.chainDb, req.AccKey, readBlockNr)
 					var acc state.Account
 					if err := rlp.DecodeBytes(sdata, &acc); err == nil {
-						entry, _ := pm.chainDb.Get(acc.CodeHash)
+						entry, _ := pm.chainDb.Get(state.CodeBucket, acc.CodeHash)
 						if bytes+len(entry) >= softResponseLimit {
 							break
 						}
@@ -696,18 +697,19 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			}
 			// Retrieve the requested state entry, stopping if enough was found
 			if header := core.GetHeader(pm.chainDb, req.BHash, core.GetBlockNumber(pm.chainDb, req.BHash)); header != nil {
-				if tr, _ := trie.New(header.Root, pm.chainDb); tr != nil {
+				readBlockNr := header.Number.Uint64()-1
+				if tr := trie.New(header.Root, state.AccountsBucket); tr != nil {
 					if len(req.AccKey) > 0 {
-						sdata := tr.Get(req.AccKey)
+						sdata := tr.Get(pm.chainDb, req.AccKey, readBlockNr)
 						tr = nil
 						var acc state.Account
 						if err := rlp.DecodeBytes(sdata, &acc); err == nil {
-							tr, _ = trie.New(acc.Root, pm.chainDb)
+							tr = trie.New(acc.Root, req.AccKey[:])
 						}
 					}
 					if tr != nil {
 						var proof light.NodeList
-						tr.Prove(req.Key, 0, &proof)
+						tr.Prove(pm.chainDb, req.Key, 0, &proof, readBlockNr)
 						proofs = append(proofs, proof)
 						bytes += proof.DataSize()
 					}
@@ -745,9 +747,11 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			if nodes.DataSize() >= softResponseLimit {
 				break
 			}
+			var readBlockNr uint64
 			if tr == nil || req.BHash != lastBHash {
 				if header := core.GetHeader(pm.chainDb, req.BHash, core.GetBlockNumber(pm.chainDb, req.BHash)); header != nil {
-					tr, _ = trie.New(header.Root, pm.chainDb)
+					readBlockNr = header.Number.Uint64()-1
+					tr = trie.New(header.Root, state.AccountsBucket)
 				} else {
 					tr = nil
 				}
@@ -757,19 +761,19 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			if tr != nil {
 				if len(req.AccKey) > 0 {
 					if str == nil || !bytes.Equal(req.AccKey, lastAccKey) {
-						sdata := tr.Get(req.AccKey)
+						sdata := tr.Get(pm.chainDb, req.AccKey, readBlockNr)
 						str = nil
 						var acc state.Account
 						if err := rlp.DecodeBytes(sdata, &acc); err == nil {
-							str, _ = trie.New(acc.Root, pm.chainDb)
+							str = trie.New(acc.Root, req.AccKey[:])
 						}
 						lastAccKey = common.CopyBytes(req.AccKey)
 					}
 					if str != nil {
-						str.Prove(req.Key, req.FromLevel, nodes)
+						str.Prove(pm.chainDb, req.Key, req.FromLevel, nodes, readBlockNr)
 					}
 				} else {
-					tr.Prove(req.Key, req.FromLevel, nodes)
+					tr.Prove(pm.chainDb, req.Key, req.FromLevel, nodes, readBlockNr)
 				}
 			}
 		}
@@ -839,7 +843,6 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if reject(uint64(reqCnt), MaxHelperTrieProofsFetch) {
 			return errResp(ErrRequestRejected, "")
 		}
-		trieDb := ethdb.NewTable(pm.chainDb, light.ChtTablePrefix)
 		for _, req := range req.Reqs {
 			if bytes >= softResponseLimit {
 				break
@@ -848,11 +851,12 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			if header := pm.blockchain.GetHeaderByNumber(req.BlockNum); header != nil {
 				sectionHead := core.GetCanonicalHash(pm.chainDb, req.ChtNum*light.ChtV1Frequency-1)
 				if root := light.GetChtRoot(pm.chainDb, req.ChtNum-1, sectionHead); root != (common.Hash{}) {
-					if tr, _ := trie.New(root, trieDb); tr != nil {
+					readBlockNr := header.Number.Uint64()-1
+					if tr := trie.New(root, light.ChtTablePrefix); tr != nil {
 						var encNumber [8]byte
 						binary.BigEndian.PutUint64(encNumber[:], req.BlockNum)
 						var proof light.NodeList
-						tr.Prove(encNumber[:], 0, &proof)
+						tr.Prove(pm.chainDb, encNumber[:], 0, &proof, readBlockNr)
 						proofs = append(proofs, ChtResp{Header: header, Proof: proof})
 						bytes += proof.DataSize() + estHeaderRlpSize
 					}
@@ -897,10 +901,9 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				break
 			}
 			if tr == nil || req.HelperTrieType != lastType || req.TrieIdx != lastIdx {
-				var prefix string
-				root, prefix = pm.getHelperTrie(req.HelperTrieType, req.TrieIdx)
+				root, _ = pm.getHelperTrie(req.HelperTrieType, req.TrieIdx)
 				if root != (common.Hash{}) {
-					if t, err := trie.New(root, ethdb.NewTable(pm.chainDb, prefix)); err == nil {
+					if t := trie.New(root, state.AccountsBucket); err == nil {
 						tr = t
 					}
 				}
@@ -916,7 +919,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				auxBytes += len(data)
 			} else {
 				if tr != nil {
-					tr.Prove(req.Key, req.FromLevel, nodes)
+					tr.Prove(pm.chainDb, req.Key, req.FromLevel, nodes, 0)
 				}
 				if req.AuxReq != 0 {
 					data := pm.getHelperTrieAuxData(req)
@@ -1085,10 +1088,10 @@ func (pm *ProtocolManager) getHelperTrie(id uint, idx uint64) (common.Hash, stri
 	switch id {
 	case htCanonical:
 		sectionHead := core.GetCanonicalHash(pm.chainDb, (idx+1)*light.ChtFrequency-1)
-		return light.GetChtV2Root(pm.chainDb, idx, sectionHead), light.ChtTablePrefix
+		return light.GetChtV2Root(pm.chainDb, idx, sectionHead), string(light.ChtTablePrefix)
 	case htBloomBits:
 		sectionHead := core.GetCanonicalHash(pm.chainDb, (idx+1)*light.BloomTrieFrequency-1)
-		return light.GetBloomTrieRoot(pm.chainDb, idx, sectionHead), light.BloomTrieTablePrefix
+		return light.GetBloomTrieRoot(pm.chainDb, idx, sectionHead), string(light.BloomTrieTablePrefix)
 	}
 	return common.Hash{}, ""
 }

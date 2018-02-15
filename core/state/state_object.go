@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	"math/big"
+	"encoding/binary"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -80,6 +81,7 @@ type stateObject struct {
 
 	cachedStorage Storage // Storage entry cache to avoid duplicate reads
 	dirtyStorage  Storage // Storage entries that need to be flushed to disk
+	uncommitedStorage Storage
 
 	// Cache flags.
 	// When an object is marked suicided it will be delete from the trie
@@ -98,6 +100,10 @@ func (s *stateObject) empty() bool {
 
 // Account is the Ethereum consensus representation of accounts.
 // These objects are stored in the main account trie.
+type ExtAccount struct {
+	Nonce uint64
+	Balance *big.Int	
+}
 type Account struct {
 	Nonce    uint64
 	Balance  *big.Int
@@ -120,6 +126,7 @@ func newObject(db *StateDB, address common.Address, data Account, onDirty func(a
 		data:          data,
 		cachedStorage: make(Storage),
 		dirtyStorage:  make(Storage),
+		uncommitedStorage: make(Storage),
 		onDirty:       onDirty,
 	}
 }
@@ -140,19 +147,18 @@ func (self *stateObject) markSuicided() {
 	self.suicided = true
 	if self.onDirty != nil {
 		self.onDirty(self.Address())
-		self.onDirty = nil
 	}
 }
 
 func (c *stateObject) touch() {
+	_, prevDirty := c.db.stateObjectsDirty[c.address]
 	c.db.journal = append(c.db.journal, touchChange{
 		account:   &c.address,
 		prev:      c.touched,
-		prevDirty: c.onDirty == nil,
+		prevDirty: prevDirty,
 	})
 	if c.onDirty != nil {
 		c.onDirty(c.Address())
-		c.onDirty = nil
 	}
 	c.touched = true
 }
@@ -160,23 +166,24 @@ func (c *stateObject) touch() {
 func (c *stateObject) getTrie(db Database) Trie {
 	if c.trie == nil {
 		var err error
-		c.trie, err = db.OpenStorageTrie(c.addrHash, c.data.Root)
+		c.trie, err = db.OpenStorageTrie(c.address, c.data.Root)
 		if err != nil {
-			c.trie, _ = db.OpenStorageTrie(c.addrHash, common.Hash{})
+			c.trie, _ = db.OpenStorageTrie(c.address, common.Hash{})
 			c.setError(fmt.Errorf("can't create storage trie: %v", err))
 		}
+		c.trie.MakeListed(c.db.nodeList)
 	}
 	return c.trie
 }
 
 // GetState returns a value in account storage.
-func (self *stateObject) GetState(db Database, key common.Hash) common.Hash {
+func (self *stateObject) GetState(db Database, key common.Hash, blockNr uint64) common.Hash {
 	value, exists := self.cachedStorage[key]
 	if exists {
 		return value
 	}
 	// Load from DB in case it is missing.
-	enc, err := self.getTrie(db).TryGet(key[:])
+	enc, err := self.getTrie(db).TryGet(db.TrieDb(), key[:], blockNr)
 	if err != nil {
 		self.setError(err)
 		return common.Hash{}
@@ -195,11 +202,11 @@ func (self *stateObject) GetState(db Database, key common.Hash) common.Hash {
 }
 
 // SetState updates a value in account storage.
-func (self *stateObject) SetState(db Database, key, value common.Hash) {
+func (self *stateObject) SetState(db Database, key, value common.Hash, blockNr uint64) {
 	self.db.journal = append(self.db.journal, storageChange{
 		account:  &self.address,
 		key:      key,
-		prevalue: self.GetState(db, key),
+		prevalue: self.GetState(db, key, blockNr),
 	})
 	self.setState(key, value)
 }
@@ -210,43 +217,62 @@ func (self *stateObject) setState(key, value common.Hash) {
 
 	if self.onDirty != nil {
 		self.onDirty(self.Address())
-		self.onDirty = nil
+		//self.onDirty = nil
 	}
 }
 
 // updateTrie writes cached storage modifications into the object's storage trie.
-func (self *stateObject) updateTrie(db Database) Trie {
+func (self *stateObject) updateTrie(db Database, blockNr uint64) Trie {
 	tr := self.getTrie(db)
 	for key, value := range self.dirtyStorage {
-		delete(self.dirtyStorage, key)
 		if (value == common.Hash{}) {
-			self.setError(tr.TryDelete(key[:]))
-			continue
+			self.setError(tr.TryDelete(db.TrieDb(), key[:], blockNr))
+		} else {
+			// Encoding []byte cannot fail, ok to ignore the error.
+			v, _ := rlp.EncodeToBytes(bytes.TrimLeft(value[:], "\x00"))
+			self.setError(tr.TryUpdate(db.TrieDb(), key[:], v, blockNr))
 		}
-		// Encoding []byte cannot fail, ok to ignore the error.
-		v, _ := rlp.EncodeToBytes(bytes.TrimLeft(value[:], "\x00"))
-		self.setError(tr.TryUpdate(key[:], v))
+		delete(self.dirtyStorage, key)
+		self.uncommitedStorage[key] = value
 	}
 	return tr
 }
 
+// updateTrie writes cached storage modifications into the object's storage trie.
+func (self *stateObject) commitTrie(dbw trie.DatabaseWriter, writeBlockNr uint64) {
+	suffix := make([]byte, 8)
+	binary.BigEndian.PutUint64(suffix, writeBlockNr^0xffffffffffffffff - 1)	// Commit objects to the trie.
+	for key, value := range self.uncommitedStorage {
+		seckey := self.getTrie(self.db.db).HashKey(key[:])
+		if (value == common.Hash{}) {
+			dbw.PutS(self.address[:], seckey, suffix, []byte{})
+		} else {
+			// Encoding []byte cannot fail, ok to ignore the error.
+			v, _ := rlp.EncodeToBytes(bytes.TrimLeft(value[:], "\x00"))
+			data, err := trie.EncodeAsValue(v)
+			if err != nil {
+				panic(fmt.Errorf("can't encode value at %x: %v", key, err))
+			}
+			dbw.PutS(self.address[:], seckey, suffix, data)
+		}
+		delete(self.uncommitedStorage, key)
+	}
+}
+
 // UpdateRoot sets the trie root to the current root hash of
-func (self *stateObject) updateRoot(db Database) {
-	self.updateTrie(db)
+func (self *stateObject) updateRoot(db Database, blockNr uint64) {
+	self.updateTrie(db, blockNr)
 	self.data.Root = self.trie.Hash()
 }
 
 // CommitTrie the storage trie of the object to dwb.
 // This updates the trie root.
-func (self *stateObject) CommitTrie(db Database, dbw trie.DatabaseWriter) error {
-	self.updateTrie(db)
+func (self *stateObject) CommitTrie(dbw trie.Database, writeBlockNr uint64) error {
+	self.commitTrie(dbw, writeBlockNr)
 	if self.dbErr != nil {
 		return self.dbErr
 	}
-	root, err := self.trie.CommitTo(dbw)
-	if err == nil {
-		self.data.Root = root
-	}
+	err := self.trie.CommitPreimages(dbw)
 	return err
 }
 
@@ -286,7 +312,6 @@ func (self *stateObject) setBalance(amount *big.Int) {
 	self.data.Balance = amount
 	if self.onDirty != nil {
 		self.onDirty(self.Address())
-		self.onDirty = nil
 	}
 }
 
@@ -300,6 +325,7 @@ func (self *stateObject) deepCopy(db *StateDB, onDirty func(addr common.Address)
 	}
 	stateObject.code = self.code
 	stateObject.dirtyStorage = self.dirtyStorage.Copy()
+	stateObject.uncommitedStorage = make(Storage)
 	stateObject.cachedStorage = self.dirtyStorage.Copy()
 	stateObject.suicided = self.suicided
 	stateObject.dirtyCode = self.dirtyCode
@@ -348,7 +374,7 @@ func (self *stateObject) setCode(codeHash common.Hash, code []byte) {
 	self.dirtyCode = true
 	if self.onDirty != nil {
 		self.onDirty(self.Address())
-		self.onDirty = nil
+		//self.onDirty = nil
 	}
 }
 
@@ -364,7 +390,7 @@ func (self *stateObject) setNonce(nonce uint64) {
 	self.data.Nonce = nonce
 	if self.onDirty != nil {
 		self.onDirty(self.Address())
-		self.onDirty = nil
+		//self.onDirty = nil
 	}
 }
 
@@ -385,4 +411,12 @@ func (self *stateObject) Nonce() uint64 {
 // interface. Interfaces are awesome.
 func (self *stateObject) Value() *big.Int {
 	panic("Value on stateObject should never be called")
+}
+
+func (self *stateObject) PruneStorageTrie() (int, bool) {
+	if self.trie != nil {
+		count, empty, _ := self.trie.TryPrune()
+		return count, empty
+	}
+	return 0, true
 }

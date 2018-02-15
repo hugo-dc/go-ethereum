@@ -26,6 +26,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -34,7 +35,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/eth/tracers"
-	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/internal/ethapi"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -90,59 +90,6 @@ type txTraceTask struct {
 	index   int            // Transaction offset in the block
 }
 
-// ephemeralDatabase is a memory wrapper around a proper database, which acts as
-// an ephemeral write layer. This construct is used by the chain tracer to write
-// state tries for intermediate blocks without serializing to disk, but at the
-// same time to allow disk fallback for reads that do no hit the memory layer.
-type ephemeralDatabase struct {
-	diskdb ethdb.Database     // Persistent disk database to fall back to with reads
-	memdb  *ethdb.MemDatabase // Ephemeral memory database for primary reads and writes
-}
-
-func (db *ephemeralDatabase) Put(key []byte, value []byte) error { return db.memdb.Put(key, value) }
-func (db *ephemeralDatabase) Delete(key []byte) error            { return errors.New("delete not supported") }
-func (db *ephemeralDatabase) Close()                             { db.memdb.Close() }
-func (db *ephemeralDatabase) NewBatch() ethdb.Batch {
-	return db.memdb.NewBatch()
-}
-func (db *ephemeralDatabase) Has(key []byte) (bool, error) {
-	if has, _ := db.memdb.Has(key); has {
-		return has, nil
-	}
-	return db.diskdb.Has(key)
-}
-func (db *ephemeralDatabase) Get(key []byte) ([]byte, error) {
-	if blob, _ := db.memdb.Get(key); blob != nil {
-		return blob, nil
-	}
-	return db.diskdb.Get(key)
-}
-
-// Prune does a state sync into a new memory write layer and replaces the old one.
-// This allows us to discard entries that are no longer referenced from the current
-// state.
-func (db *ephemeralDatabase) Prune(root common.Hash) {
-	// Pull the still relevant state data into memory
-	sync := state.NewStateSync(root, db.diskdb)
-	for sync.Pending() > 0 {
-		hash := sync.Missing(1)[0]
-
-		// Move the next trie node from the memory layer into a sync struct
-		node, err := db.memdb.Get(hash[:])
-		if err != nil {
-			panic(err) // memdb must have the data
-		}
-		if _, _, err := sync.Process([]trie.SyncResult{{Hash: hash, Data: node}}); err != nil {
-			panic(err) // it's not possible to fail processing a node
-		}
-	}
-	// Discard the old memory layer and write a new one
-	db.memdb, _ = ethdb.NewMemDatabaseWithCap(db.memdb.Len())
-	if _, err := sync.Commit(db); err != nil {
-		panic(err) // writing into a memdb cannot fail
-	}
-}
-
 // TraceChain returns the structured logs created during the execution of EVM
 // between two blocks (excluding start) and returns them as a JSON object.
 func (api *PrivateDebugAPI) TraceChain(ctx context.Context, start, end rpc.BlockNumber, config *TraceConfig) (*rpc.Subscription, error) {
@@ -189,18 +136,14 @@ func (api *PrivateDebugAPI) traceChain(ctx context.Context, start, end *types.Bl
 	// Ensure we have a valid starting state before doing any work
 	origin := start.NumberU64()
 
-	memdb, _ := ethdb.NewMemDatabase()
-	db := &ephemeralDatabase{
-		diskdb: api.eth.ChainDb(),
-		memdb:  memdb,
-	}
+	db := api.eth.ChainDb()
 	if number := start.NumberU64(); number > 0 {
 		start = api.eth.blockchain.GetBlock(start.ParentHash(), start.NumberU64()-1)
 		if start == nil {
 			return nil, fmt.Errorf("parent block #%d not found", number-1)
 		}
 	}
-	statedb, err := state.New(start.Root(), state.NewDatabase(db))
+	statedb, err := state.New(start.Root(), state.NewDatabase(db), start.NumberU64())
 	if err != nil {
 		// If the starting state is missing, allow some number of blocks to be reexecuted
 		reexec := defaultTraceReexec
@@ -213,7 +156,7 @@ func (api *PrivateDebugAPI) traceChain(ctx context.Context, start, end *types.Bl
 			if start == nil {
 				break
 			}
-			if statedb, err = state.New(start.Root(), state.NewDatabase(db)); err == nil {
+			if statedb, err = state.New(start.Root(), state.NewDatabase(db), start.NumberU64()); err == nil {
 				break
 			}
 		}
@@ -340,11 +283,12 @@ func (api *PrivateDebugAPI) traceChain(ctx context.Context, start, end *types.Bl
 				break
 			}
 			// Finalize the state so any modifications are written to the trie
-			root, err := statedb.CommitTo(db, true)
+			err = statedb.CommitTo(db, true, number)
 			if err != nil {
 				failed = err
 				break
 			}
+			root := statedb.IntermediateRoot(api.eth.chainConfig.IsEIP158(big.NewInt(int64(number))))
 			if err := statedb.Reset(root); err != nil {
 				failed = err
 				break
@@ -360,14 +304,14 @@ func (api *PrivateDebugAPI) traceChain(ctx context.Context, start, end *types.Bl
 					}
 				}
 				// No more concurrent access at this point, prune the database
-				var (
-					nodes = db.memdb.Len()
-					start = time.Now()
-				)
-				db.Prune(root)
-				log.Info("Pruned tracer state entries", "deleted", nodes-db.memdb.Len(), "left", db.memdb.Len(), "elapsed", time.Since(start))
+				//var (
+				//	nodes = 0
+				//	start = time.Now()
+				//)
+				//db.Prune(root)
+				//log.Info("Pruned tracer state entries", "deleted", nodes-db.memdb.Len(), "left", db.memdb.Len(), "elapsed", time.Since(start))
 
-				statedb, _ = state.New(root, state.NewDatabase(db))
+				statedb, _ = state.New(root, state.NewDatabase(db), number)
 			}
 		}
 	}()
@@ -538,24 +482,20 @@ func (api *PrivateDebugAPI) traceBlock(ctx context.Context, block *types.Block, 
 // attempted to be reexecuted to generate the desired state.
 func (api *PrivateDebugAPI) computeStateDB(block *types.Block, reexec uint64) (*state.StateDB, error) {
 	// If we have the state fully available, use that
-	statedb, err := api.eth.blockchain.StateAt(block.Root())
+	statedb, err := api.eth.blockchain.StateAt(block.Root(), block.NumberU64())
 	if err == nil {
 		return statedb, nil
 	}
 	// Otherwise try to reexec blocks until we find a state or reach our limit
 	origin := block.NumberU64()
 
-	memdb, _ := ethdb.NewMemDatabase()
-	db := &ephemeralDatabase{
-		diskdb: api.eth.ChainDb(),
-		memdb:  memdb,
-	}
+	db := api.eth.ChainDb()
 	for i := uint64(0); i < reexec; i++ {
 		block = api.eth.blockchain.GetBlock(block.ParentHash(), block.NumberU64()-1)
 		if block == nil {
 			break
 		}
-		if statedb, err = state.New(block.Root(), state.NewDatabase(db)); err == nil {
+		if statedb, err = state.New(block.Root(), state.NewDatabase(db), block.NumberU64()); err == nil {
 			break
 		}
 	}
@@ -587,23 +527,24 @@ func (api *PrivateDebugAPI) computeStateDB(block *types.Block, reexec uint64) (*
 			return nil, err
 		}
 		// Finalize the state so any modifications are written to the trie
-		root, err := statedb.CommitTo(db, true)
+		err = statedb.CommitTo(db, true, block.NumberU64())
 		if err != nil {
 			return nil, err
 		}
+ 		root := statedb.IntermediateRoot(api.eth.chainConfig.IsEIP158(block.Number()))
 		if err := statedb.Reset(root); err != nil {
 			return nil, err
 		}
 		// After every N blocks, prune the database to only retain relevant data
 		if block.NumberU64()%4096 == 0 || block.NumberU64() == origin {
 			var (
-				nodes = db.memdb.Len()
+				nodes = 0
 				begin = time.Now()
 			)
-			db.Prune(root)
-			log.Info("Pruned tracer state entries", "deleted", nodes-db.memdb.Len(), "left", db.memdb.Len(), "elapsed", time.Since(begin))
+			//db.Prune(root)
+			log.Info("Pruned tracer state entries", "deleted", nodes-0, "left", 0, "elapsed", time.Since(begin))
 
-			statedb, _ = state.New(root, state.NewDatabase(db))
+			statedb, _ = state.New(root, state.NewDatabase(db), block.NumberU64())
 		}
 	}
 	log.Info("Historical state regenerated", "block", block.NumberU64(), "elapsed", time.Since(start))
@@ -622,7 +563,7 @@ func (api *PrivateDebugAPI) TraceTransaction(ctx context.Context, hash common.Ha
 	if config != nil && config.Reexec != nil {
 		reexec = *config.Reexec
 	}
-	msg, vmctx, statedb, err := api.computeTxEnv(blockHash, int(index), reexec)
+	msg, vmctx, statedb, _, err := api.computeTxEnv(blockHash, int(index), reexec)
 	if err != nil {
 		return nil, err
 	}
@@ -633,7 +574,8 @@ func (api *PrivateDebugAPI) TraceTransaction(ctx context.Context, hash common.Ha
 // traceTx configures a new tracer according to the provided configuration, and
 // executes the given message in the provided environment. The return value will
 // be tracer dependent.
-func (api *PrivateDebugAPI) traceTx(ctx context.Context, message core.Message, vmctx vm.Context, statedb *state.StateDB, config *TraceConfig) (interface{}, error) {
+func (api *PrivateDebugAPI) traceTx(ctx context.Context, message core.Message, vmctx vm.Context, statedb *state.StateDB,
+	config *TraceConfig) (interface{}, error) {
 	// Assemble the structured logger or the JavaScript tracer
 	var (
 		tracer vm.Tracer
@@ -692,19 +634,19 @@ func (api *PrivateDebugAPI) traceTx(ctx context.Context, message core.Message, v
 }
 
 // computeTxEnv returns the execution environment of a certain transaction.
-func (api *PrivateDebugAPI) computeTxEnv(blockHash common.Hash, txIndex int, reexec uint64) (core.Message, vm.Context, *state.StateDB, error) {
+func (api *PrivateDebugAPI) computeTxEnv(blockHash common.Hash, txIndex int, reexec uint64) (core.Message, vm.Context, *state.StateDB, uint64, error) {
 	// Create the parent state database
 	block := api.eth.blockchain.GetBlockByHash(blockHash)
 	if block == nil {
-		return nil, vm.Context{}, nil, fmt.Errorf("block %x not found", blockHash)
+		return nil, vm.Context{}, nil, 0, fmt.Errorf("block %x not found", blockHash)
 	}
 	parent := api.eth.blockchain.GetBlock(block.ParentHash(), block.NumberU64()-1)
 	if parent == nil {
-		return nil, vm.Context{}, nil, fmt.Errorf("parent %x not found", block.ParentHash())
+		return nil, vm.Context{}, nil, 0, fmt.Errorf("parent %x not found", block.ParentHash())
 	}
 	statedb, err := api.computeStateDB(parent, reexec)
 	if err != nil {
-		return nil, vm.Context{}, nil, err
+		return nil, vm.Context{}, nil, 0, err
 	}
 	// Recompute transactions up to the target index.
 	signer := types.MakeSigner(api.config, block.Number())
@@ -714,14 +656,14 @@ func (api *PrivateDebugAPI) computeTxEnv(blockHash common.Hash, txIndex int, ree
 		msg, _ := tx.AsMessage(signer)
 		context := core.NewEVMContext(msg, block.Header(), api.eth.blockchain, nil)
 		if idx == txIndex {
-			return msg, context, statedb, nil
+			return msg, context, statedb, parent.NumberU64(), nil
 		}
 		// Not yet the searched for transaction, execute on top of the current state
 		vmenv := vm.NewEVM(context, statedb, api.config, vm.Config{})
 		if _, _, _, err := core.ApplyMessage(vmenv, msg, new(core.GasPool).AddGas(tx.Gas())); err != nil {
-			return nil, vm.Context{}, nil, fmt.Errorf("tx %x failed: %v", tx.Hash(), err)
+			return nil, vm.Context{}, nil, 0, fmt.Errorf("tx %x failed: %v", tx.Hash(), err)
 		}
 		statedb.DeleteSuicides()
 	}
-	return nil, vm.Context{}, nil, fmt.Errorf("tx index %d out of range for block %x", txIndex, blockHash)
+	return nil, vm.Context{}, nil, 0, fmt.Errorf("tx index %d out of range for block %x", txIndex, blockHash)
 }

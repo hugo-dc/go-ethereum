@@ -40,13 +40,16 @@ type NodeIterator struct {
 	Hash   common.Hash // Hash of the current entry being iterated (nil if not standalone)
 	Parent common.Hash // Hash of the first full ancestor node (nil if current is the root)
 
+	blockNr	uint64
+
 	Error error // Failure set in case of an internal error in the iterator
 }
 
 // NewNodeIterator creates an post-order state node iterator.
-func NewNodeIterator(state *StateDB) *NodeIterator {
+func NewNodeIterator(state *StateDB, blockNr uint64) *NodeIterator {
 	return &NodeIterator{
 		state: state,
+		blockNr: blockNr,
 	}
 }
 
@@ -74,7 +77,7 @@ func (it *NodeIterator) step() error {
 	}
 	// Initialize the iterator if we've just started
 	if it.stateIt == nil {
-		it.stateIt = it.state.trie.NodeIterator(nil)
+		it.stateIt = it.state.trie.NodeIterator(it.state.db.TrieDb(), nil, it.blockNr)
 	}
 	// If we had data nodes previously, we surely have at least state nodes
 	if it.dataIt != nil {
@@ -108,11 +111,11 @@ func (it *NodeIterator) step() error {
 	if err := rlp.Decode(bytes.NewReader(it.stateIt.LeafBlob()), &account); err != nil {
 		return err
 	}
-	dataTrie, err := it.state.db.OpenStorageTrie(common.BytesToHash(it.stateIt.LeafKey()), account.Root)
+	dataTrie, err := it.state.db.OpenStorageTrie(common.BytesToAddress(it.stateIt.LeafKey()), account.Root)
 	if err != nil {
 		return err
 	}
-	it.dataIt = dataTrie.NodeIterator(nil)
+	it.dataIt = dataTrie.NodeIterator(it.state.db.TrieDb(), nil, it.blockNr)
 	if !it.dataIt.Next(true) {
 		it.dataIt = nil
 	}
