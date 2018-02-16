@@ -18,6 +18,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/state"
+	"github.com/ethereum/go-ethereum/ethdb"
 )
 
 var emptyCodeHash = crypto.Keccak256(nil)
@@ -433,6 +436,23 @@ func bucketStats(db *bolt.DB) {
 		bs.LeafAlloc,bs.LeafInuse,bs.BucketN,bs.InlineBucketN,bs.InlineBucketInuse)
 }
 
+func trieStats() {
+	db, err := ethdb.NewLDBDatabase("/Users/alexeyakhunov/Library/Ethereum/geth/chaindata", 4096, 16)
+	if err != nil {
+		panic(err)
+	}
+	lastHash := core.GetHeadHeaderHash(db)
+	lastNumber := core.GetBlockNumber(db, lastHash)
+	lastHeader := core.GetHeader(db, lastHash, lastNumber)
+	statedb, err := state.New(lastHeader.Root, state.NewDatabase(db), lastNumber)
+	if err != nil {
+		panic(err)
+	}
+	statedb.PrintOccupancies()
+	fmt.Printf("%x %x\n", lastHeader.Root, statedb.IntermediateRoot(true))
+	statedb.EnumerateAccounts()
+}
+
 func main() {
 	flag.Parse()
     if *cpuprofile != "" {
@@ -445,11 +465,11 @@ func main() {
         }
         defer pprof.StopCPUProfile()
     }
-	db, err := bolt.Open("/home/akhounov/.ethereum/geth/chaindata", 0600, &bolt.Options{ReadOnly: true})
- 	if err != nil {
- 		panic(fmt.Sprintf("Could not open file: %s", err))
- 	}
- 	defer db.Close()
- 	bucketStats(db)
+	//db, err := bolt.Open("/home/akhounov/.ethereum/geth/chaindata", 0600, &bolt.Options{ReadOnly: true})
+ 	//if err != nil {
+ 	//	panic(fmt.Sprintf("Could not open file: %s", err))
+ 	//}
+ 	//defer db.Close()
+ 	trieStats()
 }
 

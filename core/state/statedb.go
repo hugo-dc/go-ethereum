@@ -385,6 +385,20 @@ func (self *StateDB) getStateObject(addr common.Address) (stateObject *stateObje
 	return obj
 }
 
+func (self *StateDB) EnumerateAccounts() {
+	count := 0
+	it := trie.NewIterator(self.trie.NodeIterator(self.db.TrieDb(), nil, self.blockNr))
+	for it.Next() {
+		var data Account
+		if err := rlp.DecodeBytes(it.Value, &data); err != nil {
+			log.Error("Failed to decode state object", "err", err, "enc", hex.EncodeToString(it.Value))
+			return
+		}
+		count++
+	}
+	fmt.Printf("Enumerated %d accounts\n", count)
+}
+
 func (self *StateDB) setStateObject(object *stateObject) {
 	self.stateObjects[object.Address()] = object
 }
@@ -553,6 +567,15 @@ func (s *StateDB) Finalise(deleteEmptyObjects bool) {
 func (s *StateDB) IntermediateRoot(deleteEmptyObjects bool) common.Hash {
 	s.Finalise(deleteEmptyObjects)
 	return s.trie.Hash()
+}
+
+func (s *StateDB) PrintOccupancies() {
+	o := make([]int, 19)
+	s.trie.CountOccupancies(s.db.TrieDb(), s.blockNr, o)
+	for i := 0; i < len(o); i++ {
+		fmt.Printf("%d:%d ", i, o[i])
+	}
+	fmt.Printf("\n")
 }
 
 func (s *StateDB) PrintTrie() {

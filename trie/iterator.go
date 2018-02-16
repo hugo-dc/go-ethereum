@@ -264,11 +264,11 @@ func (st *nodeIteratorState) resolve(dbr DatabaseReader, tr *Trie, path []byte, 
 }
 
 func (it *nodeIterator) nextChild(parent *nodeIteratorState, ancestor common.Hash) (*nodeIteratorState, []byte, bool) {
-	switch node := parent.node.(type) {
+	switch n := parent.node.(type) {
 	case *fullNode:
 		// Full node, move to the first non-nil child.
-		for i := parent.index + 1; i < len(node.Children); i++ {
-			child := node.Children[i]
+		for i := parent.index + 1; i < len(n.Children); i++ {
+			child := n.Children[i]
 			if child != nil {
 				hash := child.cache()
 				state := &nodeIteratorState{
@@ -283,18 +283,43 @@ func (it *nodeIterator) nextChild(parent *nodeIteratorState, ancestor common.Has
 				return state, path, true
 			}
 		}
-	case *shortNode:
-		// Short node, return the pointer singleton child
+	case *duoNode:
+		// Duo node
+		i1, i2 := n.childrenIdx()
+		var child node
+		var i int
 		if parent.index < 0 {
-			hash := node.Val.cache()
+			child = n.child1
+			i = int(i1)
+		} else if parent.index == int(i1) {
+			child = n.child2
+			i = int(i2)
+		}
+		if child != nil {
+			hash := child.cache()
 			state := &nodeIteratorState{
 				hash:    common.BytesToHash(hash),
-				node:    node.Val,
+				node:    child,
 				parent:  ancestor,
 				index:   -1,
 				pathlen: len(it.path),
 			}
-			path := append(it.path, node.Key...)
+			path := append(it.path, byte(i))
+			parent.index = i - 1
+			return state, path, true
+		}
+	case *shortNode:
+		// Short node, return the pointer singleton child
+		if parent.index < 0 {
+			hash := n.Val.cache()
+			state := &nodeIteratorState{
+				hash:    common.BytesToHash(hash),
+				node:    n.Val,
+				parent:  ancestor,
+				index:   -1,
+				pathlen: len(it.path),
+			}
+			path := append(it.path, compactToHex(n.Key)...)
 			return state, path, true
 		}
 	}

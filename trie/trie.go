@@ -863,7 +863,14 @@ func (t *Trie) tryPrune(n node) (newnode node, livecount int, unloaded bool, err
 	return n, 0, false, nil
 }
 
-func (t *Trie) CountOccupancies(o []int) {
+func (t *Trie) CountOccupancies(dbr DatabaseReader, blockNr uint64, o []int) {
+	if hn, ok := t.root.(hashNode); ok {
+		n, err := t.resolveHash(dbr, hn, []byte{}, 0, blockNr)
+		if err != nil {
+			panic(err)
+		}
+		t.root = n
+	}
 	t.countOccupancies(t.root, o)
 }
 
