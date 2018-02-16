@@ -61,4 +61,5 @@ type Mutation interface {
 	Database
 	Commit() error
 	Rollback()
+	Keys() [][]byte
 }

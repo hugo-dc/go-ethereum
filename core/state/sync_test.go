@@ -36,11 +36,11 @@ type testAccount struct {
 }
 
 // makeTestState create a sample test state to test node-wise reconstruction.
-func makeTestState() (Database, *ethdb.MemDatabase, common.Hash, []*testAccount) {
+func makeTestState() (Database, ethdb.Mutation, common.Hash, []*testAccount) {
 	// Create an empty state
-	mem, _ := ethdb.NewMemDatabase()
+	mem := ethdb.NewMemDatabase()
 	db := NewDatabase(mem)
-	state, _ := New(common.Hash{}, db)
+	state, _ := New(common.Hash{}, db, 0)
 
 	// Fill it with some arbitrary data
 	accounts := []*testAccount{}
@@ -61,7 +61,8 @@ func makeTestState() (Database, *ethdb.MemDatabase, common.Hash, []*testAccount)
 		state.updateStateObject(obj)
 		accounts = append(accounts, acc)
 	}
-	root, _ := state.CommitTo(mem, false)
+	state.CommitTo(mem, false, 0)
+	root := state.IntermediateRoot(false)
 
 	// Return the generated state
 	return db, mem, root, accounts

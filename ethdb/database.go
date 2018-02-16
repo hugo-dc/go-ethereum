@@ -687,6 +687,20 @@ func (m *mutation) Rollback() {
 	m.puts = llrb.New()
 }
 
+func (m *mutation) Keys() [][]byte {
+	pairs := make([][]byte, 2*m.puts.Len())
+	idx := 0
+	m.puts.AscendGreaterOrEqual(&PutItem{}, func(i llrb.Item) bool {
+		item := i.(*PutItem)
+		pairs[idx] = item.bucket
+		idx++
+		pairs[idx] = item.key
+		idx++
+		return true
+	})
+	return pairs
+}
+
 func (m *mutation) Close() {
 	m.Rollback()
 }

@@ -908,7 +908,7 @@ func TestLogReorgs(t *testing.T) {
 	}
 }
 
-func TestReorgSideEvent(t *testing.T) {
+func testReorgSideEvent(t *testing.T) {
 	var (
 		db = ethdb.NewMemDatabase()
 		key1, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")

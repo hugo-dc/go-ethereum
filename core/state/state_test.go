@@ -48,10 +48,10 @@ func (s *StateSuite) TestDump(c *checker.C) {
 	// write some of them to the trie
 	s.state.updateStateObject(obj1)
 	s.state.updateStateObject(obj2)
-	s.state.CommitTo(s.db, false)
+	s.state.CommitTo(s.db, false, 1)
 
 	// check that dump contains the state objects that are in trie
-	got := string(s.state.Dump())
+	got := string(s.state.Dump(1))
 	want := `{
     "root": "71edff0130dd2385947095001c73d9e28d862fc286fca2b922ca6f6f3cddfdd2",
     "accounts": {
@@ -97,7 +97,7 @@ func (s *StateSuite) TestNull(c *checker.C) {
 	//value := common.FromHex("0x823140710bf13990e4500136726d8b55")
 	var value common.Hash
 	s.state.SetState(address, common.Hash{}, value)
-	s.state.CommitTo(s.db, false)
+	s.state.CommitTo(s.db, false, 1)
 	value = s.state.GetState(address, common.Hash{})
 	if !common.EmptyHash(value) {
 		c.Errorf("expected empty hash. got %x", value)
@@ -155,7 +155,8 @@ func TestSnapshot2(t *testing.T) {
 	so0.deleted = false
 	state.setStateObject(so0)
 
-	root, _ := state.CommitTo(db, false)
+	state.CommitTo(db, false, 1)
+	root := state.IntermediateRoot(false)
 	state.Reset(root)
 
 	// and one with deleted == true
@@ -177,7 +178,7 @@ func TestSnapshot2(t *testing.T) {
 
 	so0Restored := state.getStateObject(stateobjaddr0)
 	// Update lazily-loaded values before comparing.
-	so0Restored.GetState(state.db, storageaddr)
+	so0Restored.GetState(state.db, storageaddr, 1)
 	so0Restored.Code(state.db)
 	// non-deleted is equal (restored)
 	compareStateObjects(so0Restored, so0, t)
