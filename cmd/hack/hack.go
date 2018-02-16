@@ -11,7 +11,9 @@ import (
 	"log"
 	"sort"
 	"io/ioutil"
+	"math/big"
 
+	"github.com/petar/GoLLRB/llrb"
 	"github.com/boltdb/bolt"
 	"github.com/wcharczuk/go-chart"
 	util "github.com/wcharczuk/go-chart/util"
@@ -21,6 +23,7 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/ethdb"
+	"github.com/ethereum/go-ethereum/trie"
 )
 
 var emptyCodeHash = crypto.Keccak256(nil)
@@ -436,8 +439,17 @@ func bucketStats(db *bolt.DB) {
 		bs.LeafAlloc,bs.LeafInuse,bs.BucketN,bs.InlineBucketN,bs.InlineBucketInuse)
 }
 
+func printOccupancies(t *trie.Trie, dbr trie.DatabaseReader, blockNr uint64) {
+	o := make([]int, 19)
+	t.CountOccupancies(dbr, blockNr, o)
+	for i := 0; i < len(o); i++ {
+		fmt.Printf("%d:%d ", i, o[i])
+	}
+	fmt.Printf("\n")
+}
+
 func trieStats() {
-	db, err := ethdb.NewLDBDatabase("/Users/alexeyakhunov/Library/Ethereum/geth/chaindata", 4096, 16)
+	db, err := ethdb.NewLDBDatabase("/home/akhounov/.ethereum/geth/chaindata", 4096, 16)
 	if err != nil {
 		panic(err)
 	}
@@ -448,9 +460,30 @@ func trieStats() {
 	if err != nil {
 		panic(err)
 	}
-	statedb.PrintOccupancies()
 	fmt.Printf("%x %x\n", lastHeader.Root, statedb.IntermediateRoot(true))
-	statedb.EnumerateAccounts()
+	triedb, tree, err := statedb.EnumerateAccounts()
+	if err != nil {
+		panic(err)
+	}
+	sectrie, _ := triedb.(*trie.SecureTrie)
+	t := sectrie.GetTrie()
+	printOccupancies(t, db, lastNumber)
+	nextThreshold := big.NewInt(0)
+	step := big.NewInt(100000000)
+	tree.AscendGreaterOrEqual(&state.AccountItem{SecKey: nil, Balance: big.NewInt(0)}, func(i llrb.Item) bool {
+		item := i.(*state.AccountItem)
+		if item.Balance.Cmp(nextThreshold) != -1 {
+			fmt.Printf("Threshold: %s | ", nextThreshold.String())
+			printOccupancies(t, db, lastNumber)
+			for ; item.Balance.Cmp(nextThreshold) != -1; {
+				nextThreshold = nextThreshold.Add(nextThreshold, step)
+			}
+		}
+		t.TryDelete(db, item.SecKey, lastNumber)
+		return true
+	})
+	fmt.Printf("Final check | ")
+	printOccupancies(t, db, lastNumber)
 }
 
 func main() {

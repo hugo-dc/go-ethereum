@@ -18,6 +18,7 @@
 package state
 
 import (
+	"bytes"
 	"fmt"
 	"math/big"
 	"sort"
@@ -32,6 +33,8 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/trie"
+
+	"github.com/petar/GoLLRB/llrb"
 )
 
 type revision struct {
@@ -385,18 +388,38 @@ func (self *StateDB) getStateObject(addr common.Address) (stateObject *stateObje
 	return obj
 }
 
-func (self *StateDB) EnumerateAccounts() {
+type AccountItem struct {
+	SecKey   []byte
+	Balance  *big.Int
+}
+
+func (a *AccountItem) Less(b llrb.Item) bool {
+	bi := b.(*AccountItem)
+	c := a.Balance.Cmp(bi.Balance)
+	if c == 0 {
+		return bytes.Compare(a.SecKey, bi.SecKey) < 0
+	} else {
+		return c < 0
+	}
+}
+
+func (self *StateDB) EnumerateAccounts() (Trie, *llrb.LLRB, error) {
 	count := 0
+	tree := llrb.New()
 	it := trie.NewIterator(self.trie.NodeIterator(self.db.TrieDb(), nil, self.blockNr))
 	for it.Next() {
 		var data Account
 		if err := rlp.DecodeBytes(it.Value, &data); err != nil {
 			log.Error("Failed to decode state object", "err", err, "enc", hex.EncodeToString(it.Value))
-			return
+			return self.trie, nil, err
 		}
+		kk := make([]byte, len(it.Key))
+		copy(kk, it.Key)
+		tree.InsertNoReplace(&AccountItem{SecKey: kk, Balance: data.Balance})
 		count++
 	}
 	fmt.Printf("Enumerated %d accounts\n", count)
+	return self.trie, tree, nil
 }
 
 func (self *StateDB) setStateObject(object *stateObject) {
