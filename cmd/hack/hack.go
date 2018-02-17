@@ -460,8 +460,8 @@ func trieStats() {
 	if err != nil {
 		panic(err)
 	}
+	statedb.PrintOccupancies()
 	fmt.Printf("%x %x\n", lastHeader.Root, statedb.IntermediateRoot(true))
-	printOccupancies(t, db, lastNumber)
 	triedb, tree, err := statedb.EnumerateAccounts()
 	if err != nil {
 		panic(err)
