@@ -665,7 +665,7 @@ func (t *Trie) resolve(dbr DatabaseReader, n node, key []byte, pos int, blockNr 
 }
 
 func (t *Trie) resolveHash(dbr DatabaseReader, n hashNode, key []byte, pos int, blockNr uint64) (node, error) {
-	//fmt.Printf("resolveHash %x %d %d\n", key, pos, blockNr)
+	fmt.Printf("resolveHash %x %d %d\n", key, pos, blockNr)
 	suffix := make([]byte, 8)
 	binary.BigEndian.PutUint64(suffix, blockNr^0xffffffffffffffff - 1) // Invert the block number
 	endSuffix := []byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
@@ -676,7 +676,7 @@ func (t *Trie) resolveHash(dbr DatabaseReader, n hashNode, key []byte, pos int, 
 	var root node
 	newsection := true
 	err := dbr.Walk(t.prefix, start, uint(pos*4), func(k, v []byte) []byte {
-		//fmt.Printf("k: %x, suffix: %x\n", k, suffix)
+		fmt.Printf("k: %x, suffix: %x\n", k, suffix)
 		if newsection || (!newsection && !bytes.Equal(k[:l], keyBuffer[:l])) {
 			if bytes.Compare(k[l:], suffix) != -1 {
 				var val []byte
@@ -696,13 +696,13 @@ func (t *Trie) resolveHash(dbr DatabaseReader, n hashNode, key []byte, pos int, 
 				copy(keyBuffer, k[:l])
 				copy(keyBuffer[l:], endSuffix)
 				newsection = true
-				//fmt.Printf("keybuffer (1): %x\n", keyBuffer)
+				fmt.Printf("keybuffer (1): %x\n", keyBuffer)
 				return keyBuffer
 			} else {
 				copy(keyBuffer, k[:l])
 				copy(keyBuffer[l:], suffix)
 				newsection = false
-				//fmt.Printf("keybuffer: (2) %x\n", keyBuffer)
+				fmt.Printf("keybuffer: (2) %x\n", keyBuffer)
 				return keyBuffer
 			}
 		}
@@ -723,7 +723,7 @@ func (t *Trie) resolveHash(dbr DatabaseReader, n hashNode, key []byte, pos int, 
 		copy(keyBuffer, k[:l])
 		copy(keyBuffer[l:], endSuffix)
 		newsection = true
-		//fmt.Printf("keybuffer (3): %x\n", keyBuffer)
+		fmt.Printf("keybuffer (3): %x\n", keyBuffer)
 		return keyBuffer
 	})
 	if err == nil {
@@ -744,7 +744,7 @@ func (t *Trie) resolveHash(dbr DatabaseReader, n hashNode, key []byte, pos int, 
 	} else {
 		fmt.Printf("Error resolving hash: %s\n", err)
 	}
-	//fmt.Printf("resolveHash]\n")
+	fmt.Printf("resolveHash]\n")
 	return root, err
 }
 
