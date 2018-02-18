@@ -470,7 +470,7 @@ func trieStats() {
 	t := sectrie.GetTrie()
 	printOccupancies(t, db, lastNumber)
 	nextThreshold := big.NewInt(0)
-	step := big.NewInt(100000000)
+	step := big.NewInt(1000000)
 	tree.AscendGreaterOrEqual(&state.AccountItem{SecKey: nil, Balance: big.NewInt(0)}, func(i llrb.Item) bool {
 		item := i.(*state.AccountItem)
 		if item.Balance.Cmp(nextThreshold) != -1 {
@@ -485,6 +485,119 @@ func trieStats() {
 	})
 	fmt.Printf("Final check | ")
 	printOccupancies(t, db, lastNumber)
+}
+
+func readTrieLog() ([]float64, map[int][]float64, []float64) {
+	data, err := ioutil.ReadFile("dust/hack.log")
+	check(err)
+	thresholds := []float64{}
+	counts := map[int][]float64{}
+	for i := 2; i <= 16; i++ {
+		counts[i] = []float64{}
+	}
+	shorts := []float64{}
+	lines := bytes.Split(data, []byte("\n"))
+	for _, line := range lines {
+		if bytes.HasPrefix(line, []byte("Threshold:")) {
+			tokens := bytes.Split(line, []byte(" "))
+			if len(tokens) == 23 {
+				szabo := parseFloat64(string(tokens[1]))/1.0e9
+				if szabo <= 1 {
+					thresholds = append(thresholds, szabo)
+					for i := 2; i <= 16; i++ {
+						pair := bytes.Split(tokens[i+3], []byte(":"))
+						counts[i] = append(counts[i], parseFloat64(string(pair[1])))
+					}
+					pair := bytes.Split(tokens[21], []byte(":"))
+					shorts = append(shorts, parseFloat64(string(pair[1])))
+				}
+			}
+		}
+	}
+	return thresholds, counts, shorts
+}
+
+func ts() []chart.GridLine {
+	return []chart.GridLine{
+		{Value: 420.0},
+	}
+}
+
+func trieChart() {
+	thresholds, counts, shorts := readTrieLog()
+	fmt.Printf("%d %d %d\n", len(thresholds), len(counts), len(shorts))
+	shortsSeries := &chart.ContinuousSeries{
+		Name: "Short nodes",
+		Style: chart.Style{
+			Show:        true,
+			StrokeColor: chart.ColorBlue,
+			FillColor:   chart.ColorBlue.WithAlpha(100),
+		},
+		XValues: thresholds,
+		YValues: shorts,
+	}
+	graph3 := chart.Chart{
+		Width:  1280,
+		Height: 720,
+		Background: chart.Style{
+			Padding: chart.Box{
+				Top: 50,
+			},
+		},
+		YAxis: chart.YAxis{
+			Name:      "Short nodes",
+			NameStyle: chart.StyleShow(),
+			Style:     chart.StyleShow(),
+			TickStyle: chart.Style{
+				TextRotationDegrees: 45.0,
+			},
+			ValueFormatter: func(v interface{}) string {
+				return fmt.Sprintf("%d", int(v.(float64)))
+			},
+			GridMajorStyle: chart.Style{
+				Show:        true,
+				StrokeColor: chart.ColorBlue,
+				StrokeWidth: 1.0,
+			},
+		},
+		/*
+		YAxisSecondary: chart.YAxis{
+			NameStyle: chart.StyleShow(),
+			Style: chart.StyleShow(),
+			TickStyle: chart.Style{
+				TextRotationDegrees: 45.0,
+			},
+			ValueFormatter: func(v interface{}) string {
+				return fmt.Sprintf("%d G", int(v.(float64)))
+			},
+		},
+		*/
+		XAxis: chart.XAxis{
+			Name: "Dust theshold",
+			Style: chart.Style{
+				Show: true,
+			},
+			ValueFormatter: func(v interface{}) string {
+				return fmt.Sprintf("%d szabo", int(v.(float64)))
+			},
+			GridMajorStyle: chart.Style{
+				Show:        true,
+				StrokeColor: chart.ColorAlternateGray,
+				StrokeWidth: 1.0,
+			},
+		},
+		Series: []chart.Series{
+			shortsSeries,
+		},
+	}
+
+	graph3.Elements = []chart.Renderable{chart.LegendThin(&graph3)}
+
+	buffer := bytes.NewBuffer([]byte{})
+	err := graph3.Render(chart.PNG, buffer)
+	check(err)
+	err = ioutil.WriteFile("chart3.png", buffer.Bytes(), 0644)
+    check(err)
 }
 
 func main() {
