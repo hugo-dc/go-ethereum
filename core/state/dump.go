@@ -19,7 +19,8 @@ package state
 import (
 	"encoding/json"
 	"fmt"
-
+	
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/trie"
@@ -86,6 +87,8 @@ func (self *Dump) onAccount(addr string, account DumpAccount) {
 }
 
 func (self *IterativeDump) onAccount(addr string, account DumpAccount) {
+	//fmt.Println("dump.go onAccount: %s", addr)
+	log.Debug("dump.go onAccount", "address", addr)
 	self.encoder.Encode(&DumpAccountFull{
 		addr,
 		account.Balance,
@@ -105,11 +108,13 @@ func (self *IterativeDump) onRoot(root common.Hash) {
 }
 
 func (self *StateDB) performDump(c collector) {
-
+	// log.Info("Loaded most recent local header", "number", currentHeader.Number, "hash", currentHeader.Hash(), "td", headerTd)
+	log.Info("dump.go performDump")
 	c.onRoot(self.trie.Hash())
 
 	it := trie.NewIterator(self.trie.NodeIterator(nil))
 	for it.Next() {
+		log.Trace("dump.go performDump it.Next..")
 		addr := self.trie.GetKey(it.Key)
 		var data Account
 		if err := rlp.DecodeBytes(it.Value, &data); err != nil {

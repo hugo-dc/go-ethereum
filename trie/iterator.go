@@ -21,6 +21,7 @@ import (
 	"container/heap"
 	"errors"
 
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -176,6 +177,7 @@ func (it *nodeIterator) Error() error {
 // sets the Error field to the encountered failure. If `descend` is false,
 // skips iterating over any subnodes of the current node.
 func (it *nodeIterator) Next(descend bool) bool {
+	log.Trace("iterator.go Next..")
 	if it.err == iteratorEnd {
 		return false
 	}
@@ -300,6 +302,7 @@ func (it *nodeIterator) nextChild(parent *nodeIteratorState, ancestor common.Has
 }
 
 func (it *nodeIterator) push(state *nodeIteratorState, parentIndex *int, path []byte) {
+	log.Trace("iterator.go push..")
 	it.path = path
 	it.stack = append(it.stack, state)
 	if parentIndex != nil {
