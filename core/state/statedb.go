@@ -413,10 +413,12 @@ func (self *StateDB) EnumerateAccounts() (Trie, *llrb.LLRB, error) {
 			log.Error("Failed to decode state object", "err", err, "enc", hex.EncodeToString(it.Value))
 			return self.trie, nil, err
 		}
-		kk := make([]byte, len(it.Key))
-		copy(kk, it.Key)
-		tree.InsertNoReplace(&AccountItem{SecKey: kk, Balance: data.Balance})
-		count++
+		if bytes.Equal(data.CodeHash, emptyCodeHash) {
+			kk := make([]byte, len(it.Key))
+			copy(kk, it.Key)
+			tree.InsertNoReplace(&AccountItem{SecKey: kk, Balance: data.Balance})
+			count++
+		}
 	}
 	fmt.Printf("Enumerated %d accounts\n", count)
 	return self.trie, tree, nil

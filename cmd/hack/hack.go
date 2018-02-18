@@ -450,6 +450,7 @@ func printOccupancies(t *trie.Trie, dbr trie.DatabaseReader, blockNr uint64) {
 
 func trieStats() {
 	db, err := ethdb.NewLDBDatabase("/home/akhounov/.ethereum/geth/chaindata", 4096, 16)
+	//db, err := ethdb.NewLDBDatabase("/Users/alexeyakhunov/Library/Ethereum/geth/chaindata", 4096, 16)
 	if err != nil {
 		panic(err)
 	}
@@ -470,7 +471,7 @@ func trieStats() {
 	t := sectrie.GetTrie()
 	printOccupancies(t, db, lastNumber)
 	nextThreshold := big.NewInt(0)
-	step := big.NewInt(1000000)
+	step := big.NewInt(1)
 	tree.AscendGreaterOrEqual(&state.AccountItem{SecKey: nil, Balance: big.NewInt(0)}, func(i llrb.Item) bool {
 		item := i.(*state.AccountItem)
 		if item.Balance.Cmp(nextThreshold) != -1 {
