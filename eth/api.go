@@ -305,6 +305,7 @@ func NewPublicDebugAPI(eth *Ethereum) *PublicDebugAPI {
 
 // DumpBlock retrieves the entire state of the database at a given block.
 func (api *PublicDebugAPI) DumpBlock(blockNr rpc.BlockNumber, file string) (state.Dump, error) {
+	log.Info("api.go DumpBlock", "blockNr", blockNr)
 	log.Info("api.go DumpBlock", "file", file)
 	/*
 	out := nil
@@ -324,20 +325,24 @@ func (api *PublicDebugAPI) DumpBlock(blockNr rpc.BlockNumber, file string) (stat
 		_, stateDb := api.eth.miner.Pending()
 		return stateDb.RawDump(), nil
 	}
+	log.Info("api.go DumpBlock doing GetBlockByNumber.")
 	var block *types.Block
 	if blockNr == rpc.LatestBlockNumber {
 		block = api.eth.blockchain.CurrentBlock()
 	} else {
 		block = api.eth.blockchain.GetBlockByNumber(uint64(blockNr))
 	}
+	log.Info("api.go DumpBlock got block.")
 	if block == nil {
 		return state.Dump{}, fmt.Errorf("block #%d not found", blockNr)
 	}
+	log.Info("api.go DumpBlock doing stateAt(block).")
 	stateDb, err := api.eth.BlockChain().StateAt(block.Root())
 	if err != nil {
 		return state.Dump{}, err
 	}
-	
+	log.Info("api.go DumpBlock got state. doing iterativeDump..")
+
 	stateDb.IterativeDump(file)
 	return state.Dump{}, nil
 	//return true, nil

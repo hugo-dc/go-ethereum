@@ -23,6 +23,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"gopkg.in/fatih/set.v0"
 )
@@ -132,6 +133,7 @@ const (
 // - an out of range error when the given block number is either too little or too large
 func (bn *BlockNumber) UnmarshalJSON(data []byte) error {
 	input := strings.TrimSpace(string(data))
+	log.Info("rpc/types.go blockNumber UnmarshalJSON", "input", input)
 	if len(input) >= 2 && input[0] == '"' && input[len(input)-1] == '"' {
 		input = input[1 : len(input)-1]
 	}
@@ -156,6 +158,7 @@ func (bn *BlockNumber) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("Blocknumber too high")
 	}
 
+	log.Info("rpc/types.go blockNumber UnmarshalJSON returning num.", "blckNum", blckNum)
 	*bn = BlockNumber(blckNum)
 	return nil
 }
