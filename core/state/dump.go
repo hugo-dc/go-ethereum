@@ -175,7 +175,7 @@ func (self *StateDB) IterativeDump(file string) {
 			panic(err)
 		}
 		var writer io.Writer = out
-		og.Info("calling performDump..")
+		log.Info("calling performDump..")
 		self.performDump(newIterativeDump(writer))
 	} else {
 		self.performDump(newIterativeDump(os.Stdout))
