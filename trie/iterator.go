@@ -177,21 +177,26 @@ func (it *nodeIterator) Error() error {
 // sets the Error field to the encountered failure. If `descend` is false,
 // skips iterating over any subnodes of the current node.
 func (it *nodeIterator) Next(descend bool) bool {
-	log.Trace("iterator.go Next..")
+	log.Trace("iterator.go Next..", "descend", descend)
 	if it.err == iteratorEnd {
+		log.Trace("iteratorEnd. returning false..")
 		return false
 	}
 	if seek, ok := it.err.(seekError); ok {
 		if it.err = it.seek(seek.key); it.err != nil {
+			log.Trace("seek error. returning false..")
 			return false
 		}
 	}
 	// Otherwise step forward with the iterator and report any errors.
+	log.Trace("iterator.go Next calling it.peek..")
 	state, parentIndex, path, err := it.peek(descend)
 	it.err = err
 	if it.err != nil {
+		log.Trace("iterator.go Next peek error. returning false..")
 		return false
 	}
+	log.Trace("iterator.go Next peek succeeded.", "parentIndex", parentIndex, "path", path, "state.hash", state.hash)
 	it.push(state, parentIndex, path)
 	return true
 }
@@ -218,6 +223,7 @@ func (it *nodeIterator) seek(prefix []byte) error {
 func (it *nodeIterator) peek(descend bool) (*nodeIteratorState, *int, []byte, error) {
 	if len(it.stack) == 0 {
 		// Initialize the iterator if we've just started.
+		log.Trace("iterator.go peek stack is zero. initialize trie hash")
 		root := it.trie.Hash()
 		state := &nodeIteratorState{node: it.trie.root, index: -1}
 		if root != emptyRoot {
@@ -252,6 +258,7 @@ func (it *nodeIterator) peek(descend bool) (*nodeIteratorState, *int, []byte, er
 }
 
 func (st *nodeIteratorState) resolve(tr *Trie, path []byte) error {
+	log.Trace("iterator.go nodeIteratorState resolve.")
 	if hash, ok := st.node.(hashNode); ok {
 		resolved, err := tr.resolveHash(hash, path)
 		if err != nil {
