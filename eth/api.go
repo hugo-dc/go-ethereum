@@ -304,7 +304,19 @@ func NewPublicDebugAPI(eth *Ethereum) *PublicDebugAPI {
 }
 
 // DumpBlock retrieves the entire state of the database at a given block.
-func (api *PublicDebugAPI) DumpBlock(blockNr rpc.BlockNumber) (state.Dump, error) {
+func (api *PublicDebugAPI) DumpBlock(blockNr rpc.BlockNumber, file string) (state.Dump, error) {
+	log.Info("api.go DumpBlock", "file", file)
+	/*
+	out := nil
+	if file != nil {
+		out, err := os.OpenFile(file, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.ModePerm)
+		if err != nil {
+			return false, err
+		}
+		//defer out.Close()
+	}
+	*/
+
 	if blockNr == rpc.PendingBlockNumber {
 		// If we're dumping the pending state, we need to request
 		// both the pending block as well as the pending state from
@@ -325,7 +337,11 @@ func (api *PublicDebugAPI) DumpBlock(blockNr rpc.BlockNumber) (state.Dump, error
 	if err != nil {
 		return state.Dump{}, err
 	}
-	return stateDb.RawDump(), nil
+	
+	stateDb.IterativeDump(file)
+	return state.Dump{}, nil
+	//return true, nil
+	//return stateDb.RawDump(), nil
 }
 
 // PrivateDebugAPI is the collection of Ethereum full node APIs exposed over

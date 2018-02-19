@@ -388,7 +388,7 @@ func dump(ctx *cli.Context) error {
 				utils.Fatalf("could not create new state: %v", err)
 			}
 			if ctx.GlobalIsSet(utils.IterativeOutputFlag.Name) {
-				state.IterativeDump()
+				state.IterativeDump("")
 			} else {
 				fmt.Printf("%s\n", state.Dump())
 			}

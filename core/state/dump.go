@@ -158,6 +158,23 @@ func (self *StateDB) Dump() []byte {
 }
 
 // IterativeDump dumps out accounts as json-objects, delimited by linebreaks on stdout
-func (self *StateDB) IterativeDump() {
-	self.performDump(newIterativeDump(os.Stdout))
+//func (self *StateDB) IterativeDump(w io.Writer) {
+func (self *StateDB) IterativeDump(file string) {
+	log.Info("dump.go IterativeDump", "out file", file)
+	if file != "" {
+		out, err := os.OpenFile(file, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.ModePerm)
+		defer out.Close()
+		/*
+		if err != nil {
+			return false, err
+		}
+		*/
+		panic(err)
+		var writer io.Writer = out
+		self.performDump(newIterativeDump(writer))
+	} else {
+		self.performDump(newIterativeDump(os.Stdout))
+	}
+	//self.performDump(newIterativeDump(os.Stdout))
+	//self.performDump(newIterativeDump(out))
 }
