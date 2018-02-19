@@ -502,16 +502,14 @@ func readTrieLog() ([]float64, map[int][]float64, []float64) {
 		if bytes.HasPrefix(line, []byte("Threshold:")) {
 			tokens := bytes.Split(line, []byte(" "))
 			if len(tokens) == 23 {
-				szabo := parseFloat64(string(tokens[1]))/1.0e9
-				if szabo <= 1 {
-					thresholds = append(thresholds, szabo)
-					for i := 2; i <= 16; i++ {
-						pair := bytes.Split(tokens[i+3], []byte(":"))
-						counts[i] = append(counts[i], parseFloat64(string(pair[1])))
-					}
-					pair := bytes.Split(tokens[21], []byte(":"))
-					shorts = append(shorts, parseFloat64(string(pair[1])))
+				wei := parseFloat64(string(tokens[1]))
+				thresholds = append(thresholds, wei)
+				for i := 2; i <= 16; i++ {
+					pair := bytes.Split(tokens[i+3], []byte(":"))
+					counts[i] = append(counts[i], parseFloat64(string(pair[1])))
 				}
+				pair := bytes.Split(tokens[21], []byte(":"))
+				shorts = append(shorts, parseFloat64(string(pair[1])))
 			}
 		}
 	}
@@ -537,6 +535,51 @@ func trieChart() {
 		XValues: thresholds,
 		YValues: shorts,
 	}
+	duoSeries := &chart.ContinuousSeries{
+		Name: "Duo nodes",
+		Style: chart.Style{
+			Show:        true,
+			StrokeColor: chart.ColorRed,
+			FillColor:   chart.ColorRed.WithAlpha(100),
+		},
+		XValues: thresholds,
+		YValues: counts[2],
+	}
+	xaxis := &chart.XAxis{
+		Name: "Dust theshold",
+		Style: chart.Style{
+			Show: true,
+		},
+		ValueFormatter: func(v interface{}) string {
+			return fmt.Sprintf("%d wei", int(v.(float64)))
+		},
+		GridMajorStyle: chart.Style{
+			Show:        true,
+			StrokeColor: chart.ColorAlternateGray,
+			StrokeWidth: 1.0,
+		},
+		Range: &chart.LogRange{
+			Min: thresholds[0],
+			Max: thresholds[len(thresholds)-1],
+		},
+		Ticks: []chart.Tick{
+			{0.0, "0"},
+			{1.0, "wei"},
+			{10.0, "10"},
+			{100.0, "100"},
+			{1e3, "1e3"},
+			{1e4, "1e4"},
+			{1e5, "1e5"},
+			{1e6, "1e6"},
+			{1e7, "1e7"},
+			{1e8, "1e8"},
+			{1e9, "1e9"},
+			//{1e12, "szabo"},
+			//{1e15, "finney"},
+			//{1e18, "ether"},
+		},
+	}
+
 	graph3 := chart.Chart{
 		Width:  1280,
 		Height: 720,
@@ -545,8 +588,44 @@ func trieChart() {
 				Top: 50,
 			},
 		},
+		XAxis: *xaxis,
 		YAxis: chart.YAxis{
 			Name:      "Short nodes",
+			NameStyle: chart.StyleShow(),
+			Style:     chart.StyleShow(),
+			TickStyle: chart.Style{
+				TextRotationDegrees: 45.0,
+			},
+			ValueFormatter: func(v interface{}) string {
+				return fmt.Sprintf("%dm", int(v.(float64)/1e6))
+			},
+			GridMajorStyle: chart.Style{
+				Show:        true,
+				StrokeColor: chart.ColorBlue,
+				StrokeWidth: 1.0,
+			},
+		},
+		Series: []chart.Series{
+			shortsSeries,
+		},
+	}
+	graph3.Elements = []chart.Renderable{chart.LegendThin(&graph3)}
+	buffer := bytes.NewBuffer([]byte{})
+	err := graph3.Render(chart.PNG, buffer)
+	check(err)
+	err = ioutil.WriteFile("chart3.png", buffer.Bytes(), 0644)
+    check(err)
+	graph4 := chart.Chart{
+		Width:  1280,
+		Height: 720,
+		Background: chart.Style{
+			Padding: chart.Box{
+				Top: 50,
+			},
+		},
+		XAxis: *xaxis,
+		YAxis: chart.YAxis{
+			Name:      "Duo nodes",
 			NameStyle: chart.StyleShow(),
 			Style:     chart.StyleShow(),
 			TickStyle: chart.Style{
@@ -557,47 +636,19 @@ func trieChart() {
 			},
 			GridMajorStyle: chart.Style{
 				Show:        true,
-				StrokeColor: chart.ColorBlue,
-				StrokeWidth: 1.0,
-			},
-		},
-		/*
-		YAxisSecondary: chart.YAxis{
-			NameStyle: chart.StyleShow(),
-			Style: chart.StyleShow(),
-			TickStyle: chart.Style{
-				TextRotationDegrees: 45.0,
-			},
-			ValueFormatter: func(v interface{}) string {
-				return fmt.Sprintf("%d G", int(v.(float64)))
-			},
-		},
-		*/
-		XAxis: chart.XAxis{
-			Name: "Dust theshold",
-			Style: chart.Style{
-				Show: true,
-			},
-			ValueFormatter: func(v interface{}) string {
-				return fmt.Sprintf("%d szabo", int(v.(float64)))
-			},
-			GridMajorStyle: chart.Style{
-				Show:        true,
-				StrokeColor: chart.ColorAlternateGray,
+				StrokeColor: chart.ColorRed,
 				StrokeWidth: 1.0,
 			},
 		},
 		Series: []chart.Series{
-			shortsSeries,
+			duoSeries,
 		},
 	}
-
-	graph3.Elements = []chart.Renderable{chart.LegendThin(&graph3)}
-
-	buffer := bytes.NewBuffer([]byte{})
-	err := graph3.Render(chart.PNG, buffer)
+	graph4.Elements = []chart.Renderable{chart.LegendThin(&graph4)}
+	buffer = bytes.NewBuffer([]byte{})
+	err = graph4.Render(chart.PNG, buffer)
 	check(err)
-	err = ioutil.WriteFile("chart3.png", buffer.Bytes(), 0644)
+	err = ioutil.WriteFile("chart4.png", buffer.Bytes(), 0644)
     check(err)
 }
 
@@ -618,6 +669,6 @@ func main() {
  	//	panic(fmt.Sprintf("Could not open file: %s", err))
  	//}
  	//defer db.Close()
- 	trieStats()
+ 	trieChart()
 }
 

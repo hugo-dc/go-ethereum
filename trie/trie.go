@@ -665,7 +665,7 @@ func (t *Trie) resolve(dbr DatabaseReader, n node, key []byte, pos int, blockNr 
 }
 
 func (t *Trie) resolveHash(dbr DatabaseReader, n hashNode, key []byte, pos int, blockNr uint64) (node, error) {
-	fmt.Printf("resolveHash %x %d %d\n", key, pos, blockNr)
+	//fmt.Printf("resolveHash %x %d %d\n", key, pos, blockNr)
 	suffix := make([]byte, 8)
 	binary.BigEndian.PutUint64(suffix, blockNr^0xffffffffffffffff - 1) // Invert the block number
 	endSuffix := []byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
