@@ -162,15 +162,20 @@ func (self *StateDB) Dump() []byte {
 func (self *StateDB) IterativeDump(file string) {
 	log.Info("dump.go IterativeDump", "out file", file)
 	if file != "" {
+		log.Info("dump.go IterativeDump opening file..")
 		out, err := os.OpenFile(file, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.ModePerm)
 		defer out.Close()
+		log.Info("file opened.")
 		/*
 		if err != nil {
 			return false, err
 		}
 		*/
-		panic(err)
+		if err != nil {
+			panic(err)
+		}
 		var writer io.Writer = out
+		og.Info("calling performDump..")
 		self.performDump(newIterativeDump(writer))
 	} else {
 		self.performDump(newIterativeDump(os.Stdout))
