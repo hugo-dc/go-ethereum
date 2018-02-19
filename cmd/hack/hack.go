@@ -535,15 +535,17 @@ func trieChart() {
 		XValues: thresholds,
 		YValues: shorts,
 	}
-	duoSeries := &chart.ContinuousSeries{
-		Name: "Duo nodes",
-		Style: chart.Style{
-			Show:        true,
-			StrokeColor: chart.ColorRed,
-			FillColor:   chart.ColorRed.WithAlpha(100),
-		},
-		XValues: thresholds,
-		YValues: counts[2],
+	countSeries := make(map[int]*chart.ContinuousSeries)
+	for i := 2; i <= 16; i++ {
+		countSeries[i] = &chart.ContinuousSeries{
+			Name: fmt.Sprintf("%d-nodes", i),
+			Style: chart.Style{
+				Show:        true,
+				StrokeColor: chart.GetAlternateColor(i),
+			},
+			XValues: thresholds,
+			YValues: counts[i],
+		}
 	}
 	xaxis := &chart.XAxis{
 		Name: "Dust theshold",
@@ -555,7 +557,7 @@ func trieChart() {
 		},
 		GridMajorStyle: chart.Style{
 			Show:        true,
-			StrokeColor: chart.ColorAlternateGray,
+			StrokeColor: chart.DefaultStrokeColor,
 			StrokeWidth: 1.0,
 		},
 		Range: &chart.LogRange{
@@ -574,7 +576,7 @@ func trieChart() {
 			{1e7, "1e7"},
 			{1e8, "1e8"},
 			{1e9, "1e9"},
-			//{1e12, "szabo"},
+			{1e10, "1e10"},
 			//{1e15, "finney"},
 			//{1e18, "ether"},
 		},
@@ -590,7 +592,7 @@ func trieChart() {
 		},
 		XAxis: *xaxis,
 		YAxis: chart.YAxis{
-			Name:      "Short nodes",
+			Name:      "Node count",
 			NameStyle: chart.StyleShow(),
 			Style:     chart.StyleShow(),
 			TickStyle: chart.Style{
@@ -601,7 +603,7 @@ func trieChart() {
 			},
 			GridMajorStyle: chart.Style{
 				Show:        true,
-				StrokeColor: chart.ColorBlue,
+				StrokeColor: chart.DefaultStrokeColor,
 				StrokeWidth: 1.0,
 			},
 		},
@@ -625,23 +627,24 @@ func trieChart() {
 		},
 		XAxis: *xaxis,
 		YAxis: chart.YAxis{
-			Name:      "Duo nodes",
+			Name:      "Node count",
 			NameStyle: chart.StyleShow(),
 			Style:     chart.StyleShow(),
 			TickStyle: chart.Style{
 				TextRotationDegrees: 45.0,
 			},
 			ValueFormatter: func(v interface{}) string {
-				return fmt.Sprintf("%d", int(v.(float64)))
+				return fmt.Sprintf("%.2fm", v.(float64)/1e6)
 			},
 			GridMajorStyle: chart.Style{
 				Show:        true,
-				StrokeColor: chart.ColorRed,
+				StrokeColor: chart.DefaultStrokeColor,
 				StrokeWidth: 1.0,
 			},
 		},
 		Series: []chart.Series{
-			duoSeries,
+			countSeries[2],
+			countSeries[3],
 		},
 	}
 	graph4.Elements = []chart.Renderable{chart.LegendThin(&graph4)}
@@ -649,6 +652,53 @@ func trieChart() {
 	err = graph4.Render(chart.PNG, buffer)
 	check(err)
 	err = ioutil.WriteFile("chart4.png", buffer.Bytes(), 0644)
+    check(err)
+	graph5 := chart.Chart{
+		Width:  1280,
+		Height: 720,
+		Background: chart.Style{
+			Padding: chart.Box{
+				Top: 50,
+			},
+		},
+		XAxis: *xaxis,
+		YAxis: chart.YAxis{
+			Name:      "Node count",
+			NameStyle: chart.StyleShow(),
+			Style:     chart.StyleShow(),
+			TickStyle: chart.Style{
+				TextRotationDegrees: 45.0,
+			},
+			ValueFormatter: func(v interface{}) string {
+				return fmt.Sprintf("%.2fk", v.(float64)/1e3)
+			},
+			GridMajorStyle: chart.Style{
+				Show:        true,
+				StrokeColor: chart.DefaultStrokeColor,
+				StrokeWidth: 1.0,
+			},
+		},
+		Series: []chart.Series{
+			countSeries[4],
+			countSeries[5],
+			countSeries[6],
+			countSeries[7],
+			countSeries[8],
+			countSeries[9],
+			countSeries[10],
+			countSeries[11],
+			countSeries[12],
+			countSeries[13],
+			countSeries[14],
+			countSeries[15],
+			countSeries[16],
+		},
+	}
+	graph5.Elements = []chart.Renderable{chart.LegendThin(&graph5)}
+	buffer = bytes.NewBuffer([]byte{})
+	err = graph5.Render(chart.PNG, buffer)
+	check(err)
+	err = ioutil.WriteFile("chart5.png", buffer.Bytes(), 0644)
     check(err)
 }
 
