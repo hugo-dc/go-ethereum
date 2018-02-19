@@ -213,10 +213,6 @@ func (t *SecureTrie) TryPrune() (int, bool, error) {
 	return t.trie.TryPrune()
 }
 
-func (t *SecureTrie) CountOccupancies(dbr DatabaseReader, blockNr uint64, o []int) {
-	t.trie.CountOccupancies(dbr, blockNr, o)
-}
-
 func (t *SecureTrie) GetTrie() *Trie {
 	return &t.trie
 }

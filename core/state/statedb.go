@@ -595,10 +595,14 @@ func (s *StateDB) IntermediateRoot(deleteEmptyObjects bool) common.Hash {
 }
 
 func (s *StateDB) PrintOccupancies() {
-	o := make([]int, 19)
-	s.trie.CountOccupancies(s.db.TrieDb(), s.blockNr, o)
-	for i := 0; i < len(o); i++ {
-		fmt.Printf("%d:%d ", i, o[i])
+	sectrie, _ := s.trie.(*trie.SecureTrie)
+	t := sectrie.GetTrie()
+	o := make(map[int]map[int]int)
+	t.CountOccupancies(s.db.TrieDb(), s.blockNr, o)
+	for level, lo := range o {
+		for i, count := range lo {
+			fmt.Printf("[%d %d]:%d ", level, i, count)
+		}
 	}
 	fmt.Printf("\n")
 }

@@ -153,9 +153,6 @@ func (t *odrTrie) TryPrune() (int, bool, error) {
 	return t.trie.TryPrune()
 }
 
-func (t *odrTrie) CountOccupancies(dbr trie.DatabaseReader, blockNr uint64, o []int) {
-}
-
 func (t *odrTrie) MakeListed(nodeList *trie.List) {
 	t.trie.MakeListed(nodeList)
 }

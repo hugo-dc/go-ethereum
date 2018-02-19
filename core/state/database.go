@@ -67,7 +67,6 @@ type Trie interface {
 	GetKey(trie.DatabaseReader, []byte) []byte // TODO(fjl): remove this when SecureTrie is removed
 	PrintTrie()
 	TryPrune() (int, bool, error)
-	CountOccupancies(dbr trie.DatabaseReader, blockNr uint64, o []int)
 	MakeListed(*trie.List)
 }
 

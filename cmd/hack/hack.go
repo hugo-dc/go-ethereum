@@ -11,9 +11,9 @@ import (
 	"log"
 	"sort"
 	"io/ioutil"
-	"math/big"
+	//"math/big"
 
-	"github.com/petar/GoLLRB/llrb"
+	//"github.com/petar/GoLLRB/llrb"
 	"github.com/boltdb/bolt"
 	"github.com/wcharczuk/go-chart"
 	util "github.com/wcharczuk/go-chart/util"
@@ -440,10 +440,12 @@ func bucketStats(db *bolt.DB) {
 }
 
 func printOccupancies(t *trie.Trie, dbr trie.DatabaseReader, blockNr uint64) {
-	o := make([]int, 19)
+	o := make(map[int]map[int]int)
 	t.CountOccupancies(dbr, blockNr, o)
-	for i := 0; i < len(o); i++ {
-		fmt.Printf("%d:%d ", i, o[i])
+	for level, lo := range o {
+		for i, count := range lo {
+			fmt.Printf("[%d %d]:%d ", level, i, count)
+		}
 	}
 	fmt.Printf("\n")
 }
@@ -462,6 +464,7 @@ func trieStats() {
 		panic(err)
 	}
 	statedb.PrintOccupancies()
+	/*
 	fmt.Printf("%x %x\n", lastHeader.Root, statedb.IntermediateRoot(true))
 	triedb, tree, err := statedb.EnumerateAccounts()
 	if err != nil {
@@ -486,6 +489,7 @@ func trieStats() {
 	})
 	fmt.Printf("Final check | ")
 	printOccupancies(t, db, lastNumber)
+	*/
 }
 
 func readTrieLog() ([]float64, map[int][]float64, []float64) {
@@ -719,6 +723,6 @@ func main() {
  	//	panic(fmt.Sprintf("Could not open file: %s", err))
  	//}
  	//defer db.Close()
- 	trieChart()
+ 	trieStats()
 }
 

@@ -881,7 +881,7 @@ func (t *Trie) tryPrune(n node) (newnode node, livecount int, unloaded bool, err
 	return n, 0, false, nil
 }
 
-func (t *Trie) CountOccupancies(dbr DatabaseReader, blockNr uint64, o []int) {
+func (t *Trie) CountOccupancies(dbr DatabaseReader, blockNr uint64, o map[int]map[int]int) {
 	if hn, ok := t.root.(hashNode); ok {
 		n, err := t.resolveHash(dbr, hn, []byte{}, 0, blockNr)
 		if err != nil {
@@ -889,30 +889,39 @@ func (t *Trie) CountOccupancies(dbr DatabaseReader, blockNr uint64, o []int) {
 		}
 		t.root = n
 	}
-	t.countOccupancies(t.root, o)
+	t.countOccupancies(t.root, 0, o)
 }
 
-func (t *Trie) countOccupancies(n node, o []int) {
+func (t *Trie) countOccupancies(n node, level int, o map[int]map[int]int) {
 	if n == nil {
 		return
 	}
 	switch n := (n).(type) {
 	case *shortNode:
-		t.countOccupancies(n.Val, o)
-		o[18]++
+		t.countOccupancies(n.Val, level+1, o)
+		if _, exists := o[level]; !exists {
+			o[level] = make(map[int]int)
+		}
+		o[level][18] = o[level][18]+1
 	case *duoNode:
-		t.countOccupancies(n.child1, o)
-		t.countOccupancies(n.child2, o)
-		o[2]++
+		t.countOccupancies(n.child1, level+1, o)
+		t.countOccupancies(n.child2, level+1, o)
+		if _, exists := o[level]; !exists {
+			o[level] = make(map[int]int)
+		}
+		o[level][2] = o[level][2]+1
 	case *fullNode:
 		count := 0
 		for i := 0; i<=16; i++ {
 			if n.Children[i] != nil {
 				count++
-				t.countOccupancies(n.Children[i], o)
+				t.countOccupancies(n.Children[i], level+1, o)
 			}
 		}
-		o[count]++
+		if _, exists := o[level]; !exists {
+			o[level] = make(map[int]int)
+		}
+		o[level][count] = o[level][count]+1
 	}
 	return
 }
