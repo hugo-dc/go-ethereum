@@ -671,24 +671,14 @@ func (t *Trie) resolveHash(dbr DatabaseReader, n hashNode, key []byte, pos int, 
 	endSuffix := []byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
 	l := 32
 	keyBuffer := make([]byte, l + 8)
-	ks := make([]byte, 8)
-	copy(ks, endSuffix)
 	start := make([]byte, l)
 	decodeNibbles(key, start)
 	var root node
 	newsection := true
-	count := 0
 	err := dbr.Walk(t.prefix, start, uint(pos*4), func(k, v []byte) []byte {
-		if len(k) == 36 {
-			copy(ks[4:], k[32:])
-		} else if len(k) == 40 {
-			copy(ks, k[32:])
-		} else {
-			panic("Wrong key length")
-		}
 		//fmt.Printf("k: %x, suffix: %x\n", k, suffix)
 		if newsection || (!newsection && !bytes.Equal(k[:l], keyBuffer[:l])) {
-			if bytes.Compare(ks, suffix) != -1 {
+			if bytes.Compare(k[l:], suffix) != -1 {
 				var val []byte
 				var err error
 				if len(v) > 0 {
@@ -701,10 +691,6 @@ func (t *Trie) resolveHash(dbr DatabaseReader, n hashNode, key []byte, pos int, 
 					_, root, err = t.insert(dbr, root, keybytesToHex(k[:l]), pos, valueNode(val_copy), blockNr)
 					if err != nil {
 						panic(fmt.Sprintf("%s", err))
-					}
-					count++
-					if count % 10000 == 0 {
-						fmt.Printf("Inserted %d entries\n", count)
 					}
 				}
 				copy(keyBuffer, k[:l])
@@ -732,10 +718,6 @@ func (t *Trie) resolveHash(dbr DatabaseReader, n hashNode, key []byte, pos int, 
 			_, root, err = t.insert(dbr, root, keybytesToHex(k[:l]), pos, valueNode(val), blockNr)
 			if err != nil {
 				panic(fmt.Sprintf("%s", err))
-			}
-			count++
-			if count % 10000 == 0 {
-				fmt.Printf("Inserted %d entries\n", count)
 			}
 		}
 		copy(keyBuffer, k[:l])

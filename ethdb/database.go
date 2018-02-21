@@ -35,6 +35,8 @@ var OpenFileLimit = 64
 var ErrKeyNotFound = errors.New("boltdb: key not found in range")
 var SuffixBucket = []byte("SUFFIX")
 
+const HeapSize = 32*1024*1024
+
 type LDBDatabase struct {
 	fn string      // filename for reporting
 	db *bolt.DB // BoltDB instance
@@ -43,6 +45,41 @@ type LDBDatabase struct {
 	quitChan chan chan error // Quit channel to stop the metrics collection before closing the database
 
 	log log.Logger // Contextual logger tracking the database path
+
+	hashfile  *os.File
+	hashdata []byte
+}
+
+func openHashFile(file string) (*os.File, []byte, error) {
+	hashfile, err := os.OpenFile(file+".hash", os.O_RDWR|os.O_CREATE, 0600)
+	if err != nil {
+		return nil, nil, err
+	}
+	stat, err := hashfile.Stat()
+	if err != nil {
+		hashfile.Close()
+		return nil, nil, err
+	}
+	if stat.Size() < HeapSize {
+		var buf [4096]byte
+		for i := 0; i < HeapSize; i+=len(buf) {
+			if _, err := hashfile.Write(buf[:]); err != nil {
+				hashfile.Close()
+				return nil, nil, err
+			}
+		}
+	} else if stat.Size() > HeapSize {
+		if err := hashfile.Truncate(HeapSize); err != nil {
+			hashfile.Close()
+			return nil, nil, err
+		}
+	}
+	hashdata, err := mmap(hashfile, HeapSize)
+	if err != nil {
+		hashfile.Close()
+		return nil, nil, err
+	}
+	return hashfile, hashdata, nil
 }
 
 // NewLDBDatabase returns a LevelDB wrapped object.
@@ -62,6 +99,10 @@ func NewLDBDatabase(file string, cache int, handles int) (*LDBDatabase, error) {
 	if err := os.MkdirAll(path.Dir(file), os.ModePerm); err != nil {
 		return nil, err
 	}
+	hashfile, hashdata, err := openHashFile(file)
+	if err != nil {
+		return nil, err
+	}
 	// Open the db and recover any potential corruptions
 	db, err := bolt.Open(file, 0600, &bolt.Options{InitialMmapSize: cache*1024*1024})
 	// (Re)check for errors and abort if opening of the db failed
@@ -72,6 +113,8 @@ func NewLDBDatabase(file string, cache int, handles int) (*LDBDatabase, error) {
 		fn:  file,
 		db:  db,
 		log: logger,
+		hashfile: hashfile,
+		hashdata: hashdata,
 	}, nil
 }
 
@@ -306,11 +349,36 @@ func (db *LDBDatabase) DeleteSuffix(suffix []byte) error {
 	return err
 }
 
+func heapIndex(key []byte) int {
+	var b [4]byte
+	copy(key[:3], b[1:])
+	return int(32*binary.BigEndian.Uint32(b[:]))
+}
+
+func (db *LDBDatabase) GetHash(key []byte) []byte {
+	index := heapIndex(key)
+	hash := make([]byte, 32)
+	copy(hash, db.hashdata[index:index+32])
+	return hash
+}
+
+func (db *LDBDatabase) PutHash(key []byte, hash []byte) {
+	index := heapIndex(key)
+	copy(db.hashdata[index:], hash[:32])
+}
+
 func (db *LDBDatabase) Close() {
 	// Stop the metrics collection to avoid internal database races
 	db.quitLock.Lock()
 	defer db.quitLock.Unlock()
 
+	err := db.hashfile.Close()
+	if err == nil {
+		db.log.Info("Hashfile closed")
+	} else {
+		db.log.Error("Failed to close hashfile", "err", err)
+	}
+	db.hashfile = nil
 	if db.quitChan != nil {
 		errc := make(chan error)
 		db.quitChan <- errc
@@ -318,7 +386,7 @@ func (db *LDBDatabase) Close() {
 			db.log.Error("Metrics collection failed", "err", err)
 		}
 	}
-	err := db.db.Close()
+	err = db.db.Close()
 	if err == nil {
 		db.log.Info("Database closed")
 	} else {
