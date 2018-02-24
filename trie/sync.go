@@ -307,6 +307,7 @@ func (s *TrieSync) children(req *request, object node) ([]*request, error) {
 		// this TrieSyncLeafCallback callback is only called on Leaf nodes
 		if req.callback != nil {
 			if node, ok := (child.node).(valueNode); ok {
+				log.Info("trie/sync.go leaf node callback.", "node", node)
 				log.Info("trie/sync.go leaf node callback.", "child.nodeKey", child.nodeKey)
 				log.Info("trie/sync.go leaf node callback.", "child.path", child.path)
 				log.Info("trie/sync.go calling request callback.", "req.depth", req.depth, "req.hash", req.hash, "req.parents", *req.parents[0])
