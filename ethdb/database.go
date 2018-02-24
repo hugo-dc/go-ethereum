@@ -180,7 +180,8 @@ func (db *LDBDatabase) MultiPut(tuples ...[]byte) error {
 			bucketEnd := bucketStart
 			for ; bucketEnd < len(tuples) && bytes.Equal(tuples[bucketEnd], tuples[bucketStart]); bucketEnd += 3 {
 			}
-			log.Debug("ethdb/database.go MultiPut calling CreateBucketIfNotExists.", "tuples[0:5]", tuples[0:5], "bucketStart", bucketStart)
+			// this causes panic: runtime error: slice bounds out of range
+			//log.Debug("ethdb/database.go MultiPut calling CreateBucketIfNotExists.", "tuples[0:5]", tuples[0:5], "bucketStart", bucketStart)
 			b, err := tx.CreateBucketIfNotExists(tuples[bucketStart])
 			if err != nil {
 				log.Debug("ethdb/database.go MultiPut call to CreateBucketIfNotExists failed!", "err", err)
