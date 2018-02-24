@@ -178,12 +178,12 @@ func (db *LDBDatabase) MultiPut(tuples ...[]byte) error {
 			bucketEnd := bucketStart
 			for ; bucketEnd < len(tuples) && bytes.Equal(tuples[bucketEnd], tuples[bucketStart]); bucketEnd += 3 {
 			}
-			logger.Info("ethdb/database.go MultiPut calling CreateBucketIfNotExists.", "tuples", tuples, "bucketStart", bucketStart)
+			log.Info("ethdb/database.go MultiPut calling CreateBucketIfNotExists.", "tuples", tuples, "bucketStart", bucketStart)
 			b, err := tx.CreateBucketIfNotExists(tuples[bucketStart])
 			if err != nil {
 				return err
 			}
-			logger.Info("ethdb/database.go MultiPut call to CreateBucketIfNotExists succeeded.")
+			log.Info("ethdb/database.go MultiPut call to CreateBucketIfNotExists succeeded.")
 			l := (bucketEnd-bucketStart)/3
 			pairs := make([][]byte, 2*l)
 			for i := 0; i < l; i++ {
@@ -744,6 +744,7 @@ func (m *mutation) Commit() error {
 		index++
 		return true
 	})
+	log.Info("ethdb/database.go Commit() calling MultiPut", "tuples", tuples)
 	if putErr := m.db.MultiPut(tuples...); putErr != nil {
 		return putErr
 	}
