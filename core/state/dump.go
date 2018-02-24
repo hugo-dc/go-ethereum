@@ -118,7 +118,7 @@ func (self *StateDB) performDump(c collector) {
 	it := trie.NewIterator(self.trie.NodeIterator(nil))
 	log.Info("dump.go performDump. NewIterator created. starting it.Next() loop..")
 	for it.Next() {
-		log.Trace("dump.go performDump it.Next..")
+		log.Trace("dump.go ------ performDump it.Next --------")
 		addr := self.trie.GetKey(it.Key)
 		var data Account
 		if err := rlp.DecodeBytes(it.Value, &data); err != nil {
@@ -134,13 +134,13 @@ func (self *StateDB) performDump(c collector) {
 			Code:     common.Bytes2Hex(obj.Code(self.db)),
 			Storage:  make(map[string]string),
 		}
-		log.Trace("dump.go performDump it.Next initiating storage trie iterator.")
+		log.Trace("dump.go ----- performDump it.Next initiating storage trie iterator -------")
 		storageIt := trie.NewIterator(obj.getTrie(self.db).NodeIterator(nil))
 		for storageIt.Next() {
 			log.Trace("dump.go performDump storageIt.Next(). next storage key...")
 			account.Storage[common.Bytes2Hex(self.trie.GetKey(storageIt.Key))] = common.Bytes2Hex(storageIt.Value)
 		}
-		log.Trace("dump.go performDump it.Next got account and all storage.")
+		log.Trace("dump.go ----- performDump it.Next got account and all storage. ------")
 		c.onAccount(common.Bytes2Hex(addr), account)
 	}
 }

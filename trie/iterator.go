@@ -253,11 +253,13 @@ func (it *nodeIterator) peek(descend bool) (*nodeIteratorState, *int, []byte, er
 
 	// Continue iteration to the next child
 	for len(it.stack) > 0 {
+		log.Trace("iterator.go peek() length of it.stack", "len(it.stack)", len(it.stack))
 		parent := it.stack[len(it.stack)-1]
 		ancestor := parent.hash
 		if (ancestor == common.Hash{}) {
 			ancestor = parent.parent
 		}
+		log.Trace("iterator.go peek() calling it.nextChild.", "parent", parent, "ancestor", ancestor)
 		state, path, ok := it.nextChild(parent, ancestor)
 		if ok {
 			if err := state.resolve(it.trie, path); err != nil {
@@ -274,8 +276,10 @@ func (it *nodeIterator) peek(descend bool) (*nodeIteratorState, *int, []byte, er
 func (st *nodeIteratorState) resolve(tr *Trie, path []byte) error {
 	log.Trace("iterator.go nodeIteratorState resolve.")
 	if hash, ok := st.node.(hashNode); ok {
+		log.Trace("iterator.go nodeIteratorState resolve.", "hash", hash, "path", path)
 		resolved, err := tr.resolveHash(hash, path)
 		if err != nil {
+			log.Trace("iterator.go nodeIteratorState resolve got error.", "err", err)
 			return err
 		}
 		st.node = resolved
@@ -310,7 +314,7 @@ func (it *nodeIterator) nextChild(parent *nodeIteratorState, ancestor common.Has
 		// Short node, return the pointer singleton child
 		if parent.index < 0 {
 			hash, _ := node.Val.cache()
-			log.Trace("iterator.go nextChild case shortNode node.Val.cache() returned.", "hash", hash)
+			log.Trace("iterator.go nextChild case shortNode node.Val.cache() returned.", "hash", hash, "node.Val", node.Val)
 			state := &nodeIteratorState{
 				hash:    common.BytesToHash(hash),
 				node:    node.Val,
@@ -326,9 +330,9 @@ func (it *nodeIterator) nextChild(parent *nodeIteratorState, ancestor common.Has
 }
 
 func (it *nodeIterator) push(state *nodeIteratorState, parentIndex *int, path []byte) {
-	log.Trace("iterator.go push..")
 	it.path = path
 	it.stack = append(it.stack, state)
+	log.Trace("iterator.go push. after push:", "path", path, "stack", it.stack)
 	if parentIndex != nil {
 		*parentIndex += 1
 	}
