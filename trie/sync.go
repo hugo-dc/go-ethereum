@@ -178,6 +178,7 @@ func (s *TrieSync) Missing(max int) []common.Hash {
 // was committed to the database and also the index of an entry if processing of
 // it failed.
 func (s *TrieSync) Process(results []SyncResult) (bool, int, error) {
+	log.Info("trie/sync.go Process.")
 	committed := false
 
 	for i, item := range results {
@@ -192,6 +193,7 @@ func (s *TrieSync) Process(results []SyncResult) (bool, int, error) {
 		// If the item is a raw entry request, commit directly
 		if request.raw {
 			request.data = item.Data
+			log.Info("trie/sync.go Process request.raw calling s.commit(request)", "request", request)
 			s.commit(request)
 			committed = true
 			continue
@@ -209,6 +211,7 @@ func (s *TrieSync) Process(results []SyncResult) (bool, int, error) {
 			return committed, i, err
 		}
 		if len(requests) == 0 && request.deps == 0 {
+			log.Info("trie/sync.go Process request.deps == 0, calling s.commit(request)", "request", request)
 			s.commit(request)
 			committed = true
 			continue
@@ -336,6 +339,7 @@ func (s *TrieSync) commit(req *request) (err error) {
 	for _, parent := range req.parents {
 		parent.deps--
 		if parent.deps == 0 {
+			log.Info("trie/sync.go commit calling s.commit(parent).", "parent", parent)
 			if err := s.commit(parent); err != nil {
 				return err
 			}

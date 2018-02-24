@@ -319,12 +319,14 @@ func (s *stateSync) loop() error {
 }
 
 func (s *stateSync) commit(force bool) error {
+	log.Info("statesync.go commit.")
 	if !force && s.bytesUncommitted < ethdb.IdealBatchSize {
 		return nil
 	}
 	start := time.Now()
 	b := s.d.stateDB.NewBatch()
 	s.sched.Commit(b)
+	log.Info("statesync.go commit callig batch.commit..")
 	if err := b.Commit(); err != nil {
 		return fmt.Errorf("DB write error: %v", err)
 	}
