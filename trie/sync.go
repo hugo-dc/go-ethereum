@@ -88,6 +88,7 @@ type TrieSync struct {
 
 // NewTrieSync creates a new trie data download scheduler.
 func NewTrieSync(bucket []byte, root common.Hash, database DatabaseReader, callback TrieSyncLeafCallback) *TrieSync {
+	log.Info("sync.go NewTrieSync.", "root", root, "bucket", bucket)
 	ts := &TrieSync{
 		database: database,
 		membatch: newSyncMemBatch(),

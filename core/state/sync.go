@@ -33,10 +33,14 @@ func NewStateSync(root common.Hash, database trie.DatabaseReader) *trie.TrieSync
 			return err
 		}
 		// FIXME: This is broken - we do not know the account's address at this point
-		syncer.AddSubTrie([]byte{}, obj.Root, 64, parent, nil)
-		syncer.AddRawEntry([]byte{}, common.BytesToHash(obj.CodeHash), 64, parent)
+		//syncer.AddSubTrie([]byte{}, obj.Root, 64, parent, nil)
+		//syncer.AddRawEntry([]byte{}, common.BytesToHash(obj.CodeHash), 64, parent)
+
+		syncer.AddSubTrie(AccountsBucket, obj.Root, 64, parent, nil)
+		syncer.AddRawEntry(CodeBucket, common.BytesToHash(obj.CodeHash), 64, parent)
 		return nil
 	}
+	log.Info("core/state/sync.go NewStateSync calling NewTrieSync.", "root", root, "bucket", AccountsBucket)
 	syncer = trie.NewTrieSync(AccountsBucket, root, database, callback)
 	return syncer
 }
