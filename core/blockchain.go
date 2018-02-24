@@ -746,7 +746,7 @@ func (bc *BlockChain) InsertReceiptChain(blockChain types.Blocks, receiptChain [
 		}
 		stats.processed++
 	}
-	log.Info("blockchain.go InsertReceiptChain callig batch.Commit")
+	log.Info("blockchain.go InsertReceiptChain calling batch.Commit")
 	if err := batch.Commit(); err != nil {
 		return 0, err
 	}

@@ -487,6 +487,7 @@ func (m *mutation) Size() int {
 }
 
 func (m *mutation) Put(bucket, key []byte, value []byte) error {
+	log.Info("ethdb/database.go Put.", "bucket", bucket)
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	bb := make([]byte, len(bucket))
