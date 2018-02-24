@@ -107,6 +107,8 @@ func (self *IterativeDump) onRoot(root common.Hash) {
 	})
 }
 
+// where is core/state/iterator.go used?
+
 func (self *StateDB) performDump(c collector) {
 	// log.Info("Loaded most recent local header", "number", currentHeader.Number, "hash", currentHeader.Hash(), "td", headerTd)
 	log.Info("dump.go performDump")
@@ -130,10 +132,13 @@ func (self *StateDB) performDump(c collector) {
 			Code:     common.Bytes2Hex(obj.Code(self.db)),
 			Storage:  make(map[string]string),
 		}
+		log.Trace("dump.go performDump it.Next initiating storage trie iterator.")
 		storageIt := trie.NewIterator(obj.getTrie(self.db).NodeIterator(nil))
 		for storageIt.Next() {
+			log.Trace("dump.go performDump storageIt.Next(). next storage key...")
 			account.Storage[common.Bytes2Hex(self.trie.GetKey(storageIt.Key))] = common.Bytes2Hex(storageIt.Value)
 		}
+		log.Trace("dump.go performDump it.Next got account and all storage.")
 		c.onAccount(common.Bytes2Hex(addr), account)
 	}
 }

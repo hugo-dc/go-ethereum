@@ -172,6 +172,11 @@ func (it *nodeIterator) Error() error {
 	return it.err
 }
 
+// where is the path generated? starts at [0,0,0,0,1] then iterates on to [0,0,0,0,2] and so forth..
+// starts with many zeros, number of zeros decreases.
+// e.g. first 4 zeros [0,0,0,0,1] then decreases to 2 zeros [0,0,1] to [0,0,2]
+
+
 // Next moves the iterator to the next node, returning whether there are any
 // further nodes. In case of an internal error this method returns false and
 // sets the Error field to the encountered failure. If `descend` is false,
@@ -183,6 +188,7 @@ func (it *nodeIterator) Next(descend bool) bool {
 		return false
 	}
 	if seek, ok := it.err.(seekError); ok {
+		log.Trace("iterator.go Next calling it.seek..")
 		if it.err = it.seek(seek.key); it.err != nil {
 			log.Trace("seek error. returning false..")
 			return false
@@ -202,6 +208,7 @@ func (it *nodeIterator) Next(descend bool) bool {
 }
 
 func (it *nodeIterator) seek(prefix []byte) error {
+	log.Trace("iterator.go seek.", "prefix", prefix)
 	// The path we're looking for is the hex encoded key without terminator.
 	key := keybytesToHex(prefix)
 	key = key[:len(key)-1]
@@ -271,6 +278,7 @@ func (st *nodeIteratorState) resolve(tr *Trie, path []byte) error {
 }
 
 func (it *nodeIterator) nextChild(parent *nodeIteratorState, ancestor common.Hash) (*nodeIteratorState, []byte, bool) {
+	log.Trace("iterator.go nextChild")
 	switch node := parent.node.(type) {
 	case *fullNode:
 		// Full node, move to the first non-nil child.
@@ -278,6 +286,7 @@ func (it *nodeIterator) nextChild(parent *nodeIteratorState, ancestor common.Has
 			child := node.Children[i]
 			if child != nil {
 				hash, _ := child.cache()
+				log.Trace("iterator.go nextChild case fullNode child.cache returned.", "hash", hash)
 				state := &nodeIteratorState{
 					hash:    common.BytesToHash(hash),
 					node:    child,
@@ -294,6 +303,7 @@ func (it *nodeIterator) nextChild(parent *nodeIteratorState, ancestor common.Has
 		// Short node, return the pointer singleton child
 		if parent.index < 0 {
 			hash, _ := node.Val.cache()
+			log.Trace("iterator.go nextChild case shortNode node.Val.cache() returned.", "hash", hash)
 			state := &nodeIteratorState{
 				hash:    common.BytesToHash(hash),
 				node:    node.Val,

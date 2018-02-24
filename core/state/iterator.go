@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/trie"
@@ -54,6 +55,7 @@ func NewNodeIterator(state *StateDB) *NodeIterator {
 // further nodes. In case of an internal error this method returns false and
 // sets the Error field to the encountered failure.
 func (it *NodeIterator) Next() bool {
+	log.Trace("state/iterator.go Next()")
 	// If the iterator failed previously, don't do anything
 	if it.Error != nil {
 		return false
@@ -131,6 +133,7 @@ func (it *NodeIterator) step() error {
 // retrieve pulls and caches the current state entry the iterator is traversing.
 // The method returns whether there are any more data left for inspection.
 func (it *NodeIterator) retrieve() bool {
+	log.Trace("state/iterator.go retrieve()")
 	// Clear out any previously set values
 	it.Hash = common.Hash{}
 

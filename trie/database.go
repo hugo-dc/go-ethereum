@@ -130,13 +130,17 @@ func (db *Database) Node(hash common.Hash) ([]byte, error) {
 		return node.blob, nil
 	}
 	// Content unavailable in memory, attempt to retrieve from disk
+	log.Trace("trie/database.go Node retrieving from disk.", "hash", hash)
 	return db.diskdb.Get(hash[:])
 }
 
 // preimage retrieves a cached trie node pre-image from memory. If it cannot be
 // found cached, the method queries the persistent database for the content.
 func (db *Database) preimage(hash common.Hash) ([]byte, error) {
+	log.Trace("trie/database.go preimage.", "hash", hash)
 	// Retrieve the node from cache if available
+	
+	// is this RLock really necessary??
 	db.lock.RLock()
 	preimage := db.preimages[hash]
 	db.lock.RUnlock()

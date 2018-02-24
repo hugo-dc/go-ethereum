@@ -128,6 +128,7 @@ func (t *SecureTrie) TryDelete(key []byte) error {
 // GetKey returns the sha3 preimage of a hashed key that was
 // previously used to store a value.
 func (t *SecureTrie) GetKey(shaKey []byte) []byte {
+	log.Trace("secure_trie.go GetKey.", "shaKey", shaKey)
 	if key, ok := t.getSecKeyCache()[string(shaKey)]; ok {
 		return key
 	}
