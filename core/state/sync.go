@@ -36,9 +36,13 @@ func NewStateSync(root common.Hash, database trie.DatabaseReader) *trie.TrieSync
 		// FIXME: This is broken - we do not know the account's address at this point
 		//syncer.AddSubTrie([]byte{}, obj.Root, 64, parent, nil)
 		//syncer.AddRawEntry([]byte{}, common.BytesToHash(obj.CodeHash), 64, parent)
-
-		syncer.AddSubTrie(AccountsBucket, obj.Root, 64, parent, nil)
-		syncer.AddRawEntry(CodeBucket, common.BytesToHash(obj.CodeHash), 64, parent)
+		
+		log.Info("core/state/sync.go NewStateSync.", "parent", parent)
+		
+		// the storage trie is supposed to have the address of the account as the prefix
+		//syncer.AddSubTrie(AccountsBucket, obj.Root, 64, parent, nil)
+		
+		//syncer.AddRawEntry(CodeBucket, common.BytesToHash(obj.CodeHash), 64, parent)
 		return nil
 	}
 	log.Debug("core/state/sync.go NewStateSync calling NewTrieSync.", "root", root, "bucket", AccountsBucket)
