@@ -37,6 +37,15 @@ func NewStateSync(root common.Hash, database trie.DatabaseReader) *trie.TrieSync
 		//syncer.AddSubTrie([]byte{}, obj.Root, 64, parent, nil)
 		//syncer.AddRawEntry([]byte{}, common.BytesToHash(obj.CodeHash), 64, parent)
 
+		// we want it.Key = it.nodeIt.LeafKey()
+		/*
+		func (it *nodeIterator) LeafKey() []byte {
+			if len(it.stack) > 0 {
+				if _, ok := it.stack[len(it.stack)-1].node.(valueNode); ok {
+					return hexToKeybytes(it.path)
+				}
+			}
+		*/
 		//log.Info("core/state/sync.go NewStateSync leaf callback.", "parent.Bytes", parent.Bytes())
 		log.Info("core/state/sync.go NewStateSync leaf callback.", "parent.hash", parent)
 

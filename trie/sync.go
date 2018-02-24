@@ -270,6 +270,7 @@ func (s *TrieSync) children(req *request, object node) ([]*request, error) {
 	// Gather all the children of the node, irrelevant whether known or not
 	type child struct {
 		node  node
+		nodeKey []byte
 		depth int
 	}
 	children := []child{}
@@ -278,6 +279,7 @@ func (s *TrieSync) children(req *request, object node) ([]*request, error) {
 	case *shortNode:
 		children = []child{{
 			node:  node.Val,
+			nodeKey: node.Key,
 			depth: req.depth + len(node.Key),
 		}}
 	case *fullNode:
@@ -296,9 +298,11 @@ func (s *TrieSync) children(req *request, object node) ([]*request, error) {
 	requests := make([]*request, 0, len(children))
 	for _, child := range children {
 		// Notify any external watcher of a new key/value node
+		// this TrieSyncLeafCallback callback is only called on Leaf nodes
 		if req.callback != nil {
 			if node, ok := (child.node).(valueNode); ok {
-				log.Info("trie/sync.go calling rquest callback.", "req.hash", req.hash)
+				log.Info("trie/sync.go leaf node callback.", "child.nodeKey", child.nodeKey)
+				log.Info("trie/sync.go calling request callback.", "req.hash", req.hash, "req.parents", req.parents)
 				if err := req.callback(node, req.hash); err != nil {
 					return nil, err
 				}
