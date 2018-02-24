@@ -204,7 +204,12 @@ func (it *nodeIterator) Next(descend bool) bool {
 		log.Trace("iterator.go Next peek error. returning false..")
 		return false
 	}
-	log.Trace("iterator.go Next peek succeeded.", "parentIndex", *parentIndex, "path", path, "state.hash", state.hash)
+	if parentIndex != nil {
+		log.Trace("iterator.go Next peek succeeded.", "parentIndex", *parentIndex, "path", path, "state.hash", state.hash)
+	} else {
+		log.Trace("iterator.go Next peek succeeded.", "parentIndex", nil, "path", path, "state.hash", state.hash)
+	}
+	
 	it.push(state, parentIndex, path)
 	return true
 }
