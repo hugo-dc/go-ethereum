@@ -227,7 +227,7 @@ func (s *TrieSync) Commit(dbw DatabaseWriter) (int, error) {
 	log.Info("trie/sync.go Commit.")
 	// Dump the membatch into a database dbw
 	for i, key := range s.membatch.order {
-		log.Info("trie/sync.go calling dbw.Put", "bucket", s.membatch.buckets[key])
+		log.Info("trie/sync.go calling dbw.Put", "key", key, "bucket", s.membatch.buckets[key])
 		if err := dbw.Put(s.membatch.buckets[key], key[:], s.membatch.batch[key]); err != nil {
 			return i, err
 		}
@@ -324,6 +324,7 @@ func (s *TrieSync) children(req *request, object node) ([]*request, error) {
 // of the referencing parent requests complete due to this commit, they are also
 // committed themselves.
 func (s *TrieSync) commit(req *request) (err error) {
+	log.Info("trie/sync.go commit.", "req.bucket", req.bucket, "req.hash", req.hash)
 	// Write the node content to the membatch
 	s.membatch.buckets[req.hash] = req.bucket
 	s.membatch.batch[req.hash] = req.data
