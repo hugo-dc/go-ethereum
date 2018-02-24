@@ -300,7 +300,6 @@ func (it *nodeIterator) nextChild(parent *nodeIteratorState, ancestor common.Has
 			child := node.Children[i]
 			if child != nil {
 				hash, _ := child.cache()
-				log.Trace("iterator.go nextChild case fullNode child.cache returned.", "hash", hash, "child", child)
 				state := &nodeIteratorState{
 					hash:    common.BytesToHash(hash),
 					node:    child,
@@ -309,6 +308,7 @@ func (it *nodeIterator) nextChild(parent *nodeIteratorState, ancestor common.Has
 					pathlen: len(it.path),
 				}
 				path := append(it.path, byte(i))
+				log.Trace("iterator.go nextChild case fullNode.", "child", child, "path", path)
 				parent.index = i - 1
 				return state, path, true
 			}
@@ -317,7 +317,6 @@ func (it *nodeIterator) nextChild(parent *nodeIteratorState, ancestor common.Has
 		// Short node, return the pointer singleton child
 		if parent.index < 0 {
 			hash, _ := node.Val.cache()
-			log.Trace("iterator.go nextChild case shortNode node.Val.cache() returned.", "hash", hash, "node.Val", node.Val)
 			state := &nodeIteratorState{
 				hash:    common.BytesToHash(hash),
 				node:    node.Val,
@@ -325,6 +324,7 @@ func (it *nodeIterator) nextChild(parent *nodeIteratorState, ancestor common.Has
 				index:   -1,
 				pathlen: len(it.path),
 			}
+			log.Trace("iterator.go nextChild case shortNode.", "node.Val", node.Val, "path", it.path)
 			path := append(it.path, node.Key...)
 			return state, path, true
 		}
@@ -335,7 +335,7 @@ func (it *nodeIterator) nextChild(parent *nodeIteratorState, ancestor common.Has
 func (it *nodeIterator) push(state *nodeIteratorState, parentIndex *int, path []byte) {
 	it.path = path
 	it.stack = append(it.stack, state)
-	log.Trace("iterator.go push. after push:", "path", path, "stack", it.stack)
+	log.Trace("iterator.go push. after push:", "path", path, "stack[-1].node", it.stack[len(it.stack)-1].node)
 	if parentIndex != nil {
 		*parentIndex += 1
 	}
