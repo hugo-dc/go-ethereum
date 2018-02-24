@@ -37,7 +37,8 @@ func NewStateSync(root common.Hash, database trie.DatabaseReader) *trie.TrieSync
 		//syncer.AddSubTrie([]byte{}, obj.Root, 64, parent, nil)
 		//syncer.AddRawEntry([]byte{}, common.BytesToHash(obj.CodeHash), 64, parent)
 
-		log.Info("core/state/sync.go NewStateSync.", "parent.Bytes", parent.Bytes())
+		//log.Info("core/state/sync.go NewStateSync leaf callback.", "parent.Bytes", parent.Bytes())
+		log.Info("core/state/sync.go NewStateSync leaf callback.", "parent.hash", parent)
 
 		// the storage trie is supposed to have the address of the account as the prefix
 		// use addrHash as the bucket instead crypto.Keccak256Hash(address[:]).Bytes()
