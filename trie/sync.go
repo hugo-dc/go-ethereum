@@ -158,6 +158,7 @@ func (s *TrieSync) AddRawEntry(bucket []byte, hash common.Hash, depth int, paren
 		bucket: bucket,
 		raw:   true,
 		depth: depth,
+		path: nil,
 	}
 	// If this sub-trie has a designated parent, link them together
 	if parent != (common.Hash{}) {
@@ -283,7 +284,7 @@ func (s *TrieSync) children(req *request, object node) ([]*request, error) {
 		children = []child{{
 			node:  node.Val,
 			nodeKey: node.Key,
-			path: node.path,
+			path: req.path,
 			depth: req.depth + len(node.Key),
 		}}
 	case *fullNode:
