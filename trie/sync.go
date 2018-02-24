@@ -181,7 +181,6 @@ func (s *TrieSync) Missing(max int) []common.Hash {
 // was committed to the database and also the index of an entry if processing of
 // it failed.
 func (s *TrieSync) Process(results []SyncResult) (bool, int, error) {
-	log.Info("trie/sync.go Process.")
 	committed := false
 
 	for i, item := range results {
