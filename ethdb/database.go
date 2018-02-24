@@ -125,7 +125,7 @@ func (db *LDBDatabase) Path() string {
 
 // Put puts the given key / value to the queue
 func (db *LDBDatabase) Put(bucket, key []byte, value []byte) error {
-	log.Info("ethdb/database.go db Put.", "bucket", bucket)
+	log.Debug("ethdb/database.go db Put.", "bucket", bucket)
 	err := db.db.Update(func(tx *bolt.Tx) error {
 		b, err := tx.CreateBucketIfNotExists(bucket)
 		if err != nil {
@@ -138,7 +138,7 @@ func (db *LDBDatabase) Put(bucket, key []byte, value []byte) error {
 
 // Put puts the given key / value to the queue
 func (db *LDBDatabase) PutS(bucket, key, suffix, value []byte) error {
-	log.Info("ethdb/database.go db PutS.", "bucket", bucket)
+	log.Debug("ethdb/database.go db PutS.", "bucket", bucket)
 	composite := make([]byte, len(key) + len(suffix))
 	copy(composite, key)
 	copy(composite[len(key):], suffix)
@@ -180,13 +180,13 @@ func (db *LDBDatabase) MultiPut(tuples ...[]byte) error {
 			bucketEnd := bucketStart
 			for ; bucketEnd < len(tuples) && bytes.Equal(tuples[bucketEnd], tuples[bucketStart]); bucketEnd += 3 {
 			}
-			log.Info("ethdb/database.go MultiPut calling CreateBucketIfNotExists.", "tuples[0:5]", tuples[0:5], "bucketStart", bucketStart)
+			log.Debug("ethdb/database.go MultiPut calling CreateBucketIfNotExists.", "tuples[0:5]", tuples[0:5], "bucketStart", bucketStart)
 			b, err := tx.CreateBucketIfNotExists(tuples[bucketStart])
 			if err != nil {
-				log.Info("ethdb/database.go MultiPut call to CreateBucketIfNotExists failed!", "err", err)
+				log.Debug("ethdb/database.go MultiPut call to CreateBucketIfNotExists failed!", "err", err)
 				return err
 			}
-			log.Info("ethdb/database.go MultiPut call to CreateBucketIfNotExists succeeded.")
+			log.Debug("ethdb/database.go MultiPut call to CreateBucketIfNotExists succeeded.")
 			l := (bucketEnd-bucketStart)/3
 			pairs := make([][]byte, 2*l)
 			for i := 0; i < l; i++ {
@@ -489,7 +489,7 @@ func (m *mutation) Size() int {
 }
 
 func (m *mutation) Put(bucket, key []byte, value []byte) error {
-	log.Info("ethdb/database.go Put.", "bucket", bucket)
+	log.Debug("ethdb/database.go Put.", "bucket", bucket)
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	bb := make([]byte, len(bucket))
@@ -748,7 +748,7 @@ func (m *mutation) Commit() error {
 		index++
 		return true
 	})
-	log.Info("ethdb/database.go Commit() calling MultiPut")
+	log.Debug("ethdb/database.go Commit() calling MultiPut")
 	if putErr := m.db.MultiPut(tuples...); putErr != nil {
 		return putErr
 	}
@@ -803,12 +803,12 @@ func NewTable(db Database, prefix string) Database {
 }
 
 func (dt *table) Put(bucket, key []byte, value []byte) error {
-	log.Info("ethdb/database.go table Put.", "bucket", bucket)
+	log.Debug("ethdb/database.go table Put.", "bucket", bucket)
 	return dt.db.Put(bucket, append([]byte(dt.prefix), key...), value)
 }
 
 func (dt *table) PutS(bucket, key, suffix, value []byte) error {
-	log.Info("ethdb/database.go table PutS.", "bucket", bucket)
+	log.Debug("ethdb/database.go table PutS.", "bucket", bucket)
 	return dt.db.PutS(bucket, append([]byte(dt.prefix), key...), suffix, value)
 }
 

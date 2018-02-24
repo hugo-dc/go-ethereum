@@ -319,14 +319,14 @@ func (s *stateSync) loop() error {
 }
 
 func (s *stateSync) commit(force bool) error {
-	log.Info("statesync.go commit.")
+	log.Debug("statesync.go commit.")
 	if !force && s.bytesUncommitted < ethdb.IdealBatchSize {
 		return nil
 	}
 	start := time.Now()
 	b := s.d.stateDB.NewBatch()
 	s.sched.Commit(b)
-	log.Info("statesync.go commit callig batch.commit..")
+	log.Debug("statesync.go commit callig batch.commit..")
 	if err := b.Commit(); err != nil {
 		return fmt.Errorf("DB write error: %v", err)
 	}
@@ -455,7 +455,7 @@ func (s *stateSync) process(req *stateReq) (bool, error) {
 // peer into the state trie, returning whether anything useful was written or any
 // error occurred.
 func (s *stateSync) processNodeData(blob []byte) (bool, common.Hash, error) {
-	log.Info("statesync.go processNodeData")
+	log.Debug("statesync.go processNodeData")
 	res := trie.SyncResult{Data: blob}
 	s.keccak.Reset()
 	s.keccak.Write(blob)

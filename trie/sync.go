@@ -88,7 +88,7 @@ type TrieSync struct {
 
 // NewTrieSync creates a new trie data download scheduler.
 func NewTrieSync(bucket []byte, root common.Hash, database DatabaseReader, callback TrieSyncLeafCallback) *TrieSync {
-	log.Info("sync.go NewTrieSync.", "root", root, "bucket", bucket)
+	log.Debug("sync.go NewTrieSync.", "root", root, "bucket", bucket)
 	ts := &TrieSync{
 		database: database,
 		membatch: newSyncMemBatch(),
@@ -113,7 +113,7 @@ func (s *TrieSync) AddSubTrie(bucket []byte, root common.Hash, depth int, parent
 	if local, err := decodeNode(key, blob); local != nil && err == nil {
 		return
 	}
-	log.Info("sync.go AddSubTrie.", "root", root, "bucket", bucket)
+	log.Debug("sync.go AddSubTrie.", "root", root, "bucket", bucket)
 	// Assemble the new sub-trie sync request
 	req := &request{
 		hash:     root,
@@ -149,7 +149,7 @@ func (s *TrieSync) AddRawEntry(bucket []byte, hash common.Hash, depth int, paren
 		return
 	}
 	
-	log.Info("sync.go AddRawEntry.", "hash", hash, "bucket", bucket)
+	log.Debug("sync.go AddRawEntry.", "hash", hash, "bucket", bucket)
 	// Assemble the new sub-trie sync request
 	req := &request{
 		hash:  hash,
@@ -196,7 +196,7 @@ func (s *TrieSync) Process(results []SyncResult) (bool, int, error) {
 		// If the item is a raw entry request, commit directly
 		if request.raw {
 			request.data = item.Data
-			log.Info("trie/sync.go Process request.raw calling s.commit(request)", "request", request)
+			log.Debug("trie/sync.go Process request.raw calling s.commit(request)", "request", request)
 			s.commit(request)
 			committed = true
 			continue
@@ -214,7 +214,7 @@ func (s *TrieSync) Process(results []SyncResult) (bool, int, error) {
 			return committed, i, err
 		}
 		if len(requests) == 0 && request.deps == 0 {
-			log.Info("trie/sync.go Process request.deps == 0, calling s.commit(request)", "request", request)
+			log.Debug("trie/sync.go Process request.deps == 0, calling s.commit(request)", "request", request)
 			s.commit(request)
 			committed = true
 			continue
@@ -230,10 +230,10 @@ func (s *TrieSync) Process(results []SyncResult) (bool, int, error) {
 // Commit flushes the data stored in the internal membatch out to persistent
 // storage, returning th enumber of items written and any occurred error.
 func (s *TrieSync) Commit(dbw DatabaseWriter) (int, error) {
-	log.Info("trie/sync.go Commit.")
+	log.Debug("trie/sync.go Commit.")
 	// Dump the membatch into a database dbw
 	for i, key := range s.membatch.order {
-		log.Info("trie/sync.go calling dbw.Put", "key", key, "bucket", s.membatch.buckets[key])
+		log.Debug("trie/sync.go calling dbw.Put", "key", key, "bucket", s.membatch.buckets[key])
 		if err := dbw.Put(s.membatch.buckets[key], key[:], s.membatch.batch[key]); err != nil {
 			return i, err
 		}
@@ -313,7 +313,7 @@ func (s *TrieSync) children(req *request, object node) ([]*request, error) {
 			if ok, _ := s.database.Has(req.bucket, node); ok {
 				continue
 			}
-			log.Info("sync.go children. appending request:", "hash", hash, "bucket", req.bucket)
+			log.Debug("sync.go children. appending request:", "hash", hash, "bucket", req.bucket)
 			// Locally unknown node, schedule for retrieval
 			requests = append(requests, &request{
 				hash:     hash,
@@ -331,7 +331,7 @@ func (s *TrieSync) children(req *request, object node) ([]*request, error) {
 // of the referencing parent requests complete due to this commit, they are also
 // committed themselves.
 func (s *TrieSync) commit(req *request) (err error) {
-	log.Info("trie/sync.go commit.", "req.bucket", req.bucket, "req.hash", req.hash)
+	log.Debug("trie/sync.go commit.", "req.bucket", req.bucket, "req.hash", req.hash)
 	// Write the node content to the membatch
 	s.membatch.buckets[req.hash] = req.bucket
 	s.membatch.batch[req.hash] = req.data
@@ -343,7 +343,7 @@ func (s *TrieSync) commit(req *request) (err error) {
 	for _, parent := range req.parents {
 		parent.deps--
 		if parent.deps == 0 {
-			log.Info("trie/sync.go commit calling s.commit(parent).", "parent", parent)
+			log.Debug("trie/sync.go commit calling s.commit(parent).", "parent", parent)
 			if err := s.commit(parent); err != nil {
 				return err
 			}

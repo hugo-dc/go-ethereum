@@ -41,7 +41,7 @@ func NewStateSync(root common.Hash, database trie.DatabaseReader) *trie.TrieSync
 		syncer.AddRawEntry(CodeBucket, common.BytesToHash(obj.CodeHash), 64, parent)
 		return nil
 	}
-	log.Info("core/state/sync.go NewStateSync calling NewTrieSync.", "root", root, "bucket", AccountsBucket)
+	log.Debug("core/state/sync.go NewStateSync calling NewTrieSync.", "root", root, "bucket", AccountsBucket)
 	syncer = trie.NewTrieSync(AccountsBucket, root, database, callback)
 	return syncer
 }

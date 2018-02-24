@@ -409,7 +409,7 @@ func WriteBody(db ethdb.Putter, hash common.Hash, number uint64, body *types.Bod
 
 // WriteBodyRLP writes a serialized body of a block into the database.
 func WriteBodyRLP(db ethdb.Putter, hash common.Hash, number uint64, rlp rlp.RawValue) error {
-	log.Info("database_util.go WriteBodyRLP.", "bodyPrefix", bodyPrefix)
+	log.Debug("database_util.go WriteBodyRLP.", "bodyPrefix", bodyPrefix)
 	key := append(encodeBlockNumber(number), hash.Bytes()...)
 	if err := db.Put(bodyPrefix, key, rlp); err != nil {
 		log.Crit("Failed to store block body", "err", err)
@@ -456,7 +456,7 @@ func WriteBlockReceipts(db ethdb.Putter, hash common.Hash, number uint64, receip
 	if err != nil {
 		return err
 	}
-	log.Info("database_util.go WriteBlockReceipts.", "blockReceiptsPrefix", blockReceiptsPrefix)
+	log.Debug("database_util.go WriteBlockReceipts.", "blockReceiptsPrefix", blockReceiptsPrefix)
 	// Store the flattened receipt slice
 	key := append(encodeBlockNumber(number), hash.Bytes()...)
 	if err := db.Put(blockReceiptsPrefix, key, bytes); err != nil {
@@ -479,7 +479,7 @@ func WriteTxLookupEntries(db ethdb.Putter, block *types.Block) error {
 		if err != nil {
 			return err
 		}
-		log.Info("database_util.go WriteTxLookupEntries.", "lookupPrefix", lookupPrefix)
+		log.Debug("database_util.go WriteTxLookupEntries.", "lookupPrefix", lookupPrefix)
 		if err := db.Put(lookupPrefix, tx.Hash().Bytes(), data); err != nil {
 			return err
 		}
