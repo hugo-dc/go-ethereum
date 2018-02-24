@@ -33,6 +33,9 @@ func NewStateSync(root common.Hash, database trie.DatabaseReader) *trie.TrieSync
 		if err := rlp.Decode(bytes.NewReader(leaf), &obj); err != nil {
 			return err
 		}
+		
+		log.Info("core/state/sync.go NewStateSync leaf callback.", "Account obj", obj)
+		
 		// FIXME: This is broken - we do not know the account's address at this point
 		//syncer.AddSubTrie([]byte{}, obj.Root, 64, parent, nil)
 		//syncer.AddRawEntry([]byte{}, common.BytesToHash(obj.CodeHash), 64, parent)
