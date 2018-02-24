@@ -30,6 +30,7 @@ var MaxTrieCacheGen = uint32(4*1024*1024)
 
 var AccountsBucket = []byte("AT")
 var CodeBucket = []byte("CODE")
+var StorageBucket = []byte("STOR")
 
 const (
 	// Number of past tries to keep. This value is chosen such that
@@ -47,6 +48,7 @@ type Database interface {
 	// OpenStorageTrie opens the storage trie of an account.
 	OpenTrie(root common.Hash) (Trie, error)
 	OpenStorageTrie(addr common.Address, root common.Hash) (Trie, error)
+	//OpenStorageTrie(addrHash, root common.Hash) (Trie, error)
 	// Accessing contract code:
 	ContractCode(addrHash, codeHash common.Hash) ([]byte, error)
 	ContractCodeSize(addrHash, codeHash common.Hash) (int, error)
@@ -87,7 +89,9 @@ func (db *cachingDB) OpenTrie(root common.Hash) (Trie, error) {
 }
 
 func (db *cachingDB) OpenStorageTrie(addr common.Address, root common.Hash) (Trie, error) {
-	return trie.NewSecure(root, addr[:])
+	// use addrHash as the db "prefix", not addr[:]
+	//return trie.NewSecure(root, addr[:])
+	return trie.NewSecure(root, crypto.Keccak256Hash(addr[:]).Bytes())
 }
 
 func (db *cachingDB) CopyTrie(t Trie) Trie {
@@ -121,4 +125,3 @@ func (db *cachingDB) ContractCodeSize(addrHash, codeHash common.Hash) (int, erro
 func (db *cachingDB) TrieDb() ethdb.Getter {
 	return db.db
 }
-
