@@ -21,6 +21,7 @@ import (
 	"hash"
 	"sync"
 
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto/sha3"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -54,9 +55,11 @@ func returnHasherToPool(h *hasher) {
 // hash collapses a node down into a hash node, also returning a copy of the
 // original node initialized with the computed hash to replace the original one.
 func (h *hasher) hash(n node, db *Database, force bool) (node, node, error) {
+	log.Trace("trie/hasher.go hash.", "force", force)
 	// If we're not storing the node, just hashing, use available cached data
 	if hash, dirty := n.cache(); hash != nil {
 		if db == nil {
+			log.Trace("trie/hasher.go hash. db is nil. returning hash", "hash", hash)
 			return hash, n, nil
 		}
 		if n.canUnload(h.cachegen, h.cachelimit) {
