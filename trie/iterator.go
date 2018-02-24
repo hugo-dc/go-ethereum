@@ -293,7 +293,7 @@ func (it *nodeIterator) nextChild(parent *nodeIteratorState, ancestor common.Has
 			child := node.Children[i]
 			if child != nil {
 				hash, _ := child.cache()
-				log.Trace("iterator.go nextChild case fullNode child.cache returned.", "hash", hash)
+				log.Trace("iterator.go nextChild case fullNode child.cache returned.", "hash", hash, "child", child)
 				state := &nodeIteratorState{
 					hash:    common.BytesToHash(hash),
 					node:    child,
