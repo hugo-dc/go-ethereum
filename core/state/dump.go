@@ -117,7 +117,7 @@ func (self *StateDB) performDump(c collector) {
 	log.Info("dump.go performDump did c.onRoot. creating trie.NewIterator..")
 	
 	
-	testAddrHash, err := hex.DecodeString("cfffffd5ec8ab9c01236eb9e4d15529574e4b0b0e2f0e6f245721f14bf6e25a8")
+	testAddrHash, _ := hex.DecodeString("cfffffd5ec8ab9c01236eb9e4d15529574e4b0b0e2f0e6f245721f14bf6e25a8")
 	testAddr := self.trie.GetKey(testAddrHash)
 	log.Info("dump.go performDump. got key for testAddr:", "testAddrHash", testAddrHash, "testAddr", testAddr)
 
