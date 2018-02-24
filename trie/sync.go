@@ -120,7 +120,7 @@ func (s *TrieSync) AddSubTrie(bucket []byte, root common.Hash, depth int, parent
 		hash:     root,
 		bucket:   bucket,
 		depth:    depth,
-		path:     [],
+		path:     nil,
 		callback: callback,
 	}
 	// If this sub-trie has a designated parent, link them together
@@ -291,7 +291,7 @@ func (s *TrieSync) children(req *request, object node) ([]*request, error) {
 			if node.Children[i] != nil {
 				children = append(children, child{
 					node:  node.Children[i],
-					path: append(req.path, byte(i))
+					path: append(req.path, byte(i)),
 					depth: req.depth + 1,
 				})
 			}
