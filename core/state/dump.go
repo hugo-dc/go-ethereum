@@ -137,7 +137,7 @@ func (self *StateDB) performDump(c collector) {
 		log.Trace("dump.go ----- performDump it.Next initiating storage trie iterator -------")
 		storageIt := trie.NewIterator(obj.getTrie(self.db).NodeIterator(nil))
 		for storageIt.Next() {
-			log.Trace("dump.go performDump storageIt.Next(). next storage key...")
+			log.Trace("dump.go performDump storageIt.Next(). got storage key:", "storageIt.Key", storageIt.Key)
 			account.Storage[common.Bytes2Hex(self.trie.GetKey(storageIt.Key))] = common.Bytes2Hex(storageIt.Value)
 		}
 		log.Trace("dump.go ----- performDump it.Next got account and all storage. ------")

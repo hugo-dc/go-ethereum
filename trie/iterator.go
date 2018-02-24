@@ -262,6 +262,7 @@ func (it *nodeIterator) peek(descend bool) (*nodeIteratorState, *int, []byte, er
 		log.Trace("iterator.go peek() calling it.nextChild.", "parent", parent, "ancestor", ancestor)
 		state, path, ok := it.nextChild(parent, ancestor)
 		if ok {
+			log.Trace("iterator.go peek() it.nextChild returned. calling state.resolve...")
 			if err := state.resolve(it.trie, path); err != nil {
 				return parent, &parent.index, path, err
 			}
@@ -284,6 +285,8 @@ func (st *nodeIteratorState) resolve(tr *Trie, path []byte) error {
 		}
 		st.node = resolved
 		st.hash = common.BytesToHash(hash)
+	} else {
+		log.Trace("iterator.go nodeIteratorState resolve. hash not ok", "hash", hash)
 	}
 	return nil
 }

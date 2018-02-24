@@ -130,7 +130,7 @@ func (db *Database) Node(hash common.Hash) ([]byte, error) {
 		return node.blob, nil
 	}
 	// Content unavailable in memory, attempt to retrieve from disk
-	log.Trace("trie/database.go Node retrieving from disk.", "hash", hash)
+	log.Debug("trie/database.go Node retrieving from disk.", "hash", hash)
 	return db.diskdb.Get(hash[:])
 }
 
@@ -148,6 +148,7 @@ func (db *Database) preimage(hash common.Hash) ([]byte, error) {
 	if preimage != nil {
 		return preimage, nil
 	}
+	log.Debug("trie/database.go preimage hitting disk for hash:", "hash", hash)
 	// Content unavailable in memory, attempt to retrieve from disk
 	return db.diskdb.Get(db.secureKey(hash[:]))
 }
