@@ -114,6 +114,7 @@ func (e seekError) Error() string {
 }
 
 func newNodeIterator(trie *Trie, start []byte) NodeIterator {
+	log.Trace("iterator.go newNodeIterator calling trie.Hash")
 	if trie.Hash() == emptyState {
 		return new(nodeIterator)
 	}
@@ -123,6 +124,7 @@ func newNodeIterator(trie *Trie, start []byte) NodeIterator {
 }
 
 func (it *nodeIterator) Hash() common.Hash {
+	log.Trace("iterator.go nodeIterator.Hash()")
 	if len(it.stack) == 0 {
 		return common.Hash{}
 	}
@@ -202,7 +204,7 @@ func (it *nodeIterator) Next(descend bool) bool {
 		log.Trace("iterator.go Next peek error. returning false..")
 		return false
 	}
-	log.Trace("iterator.go Next peek succeeded.", "parentIndex", parentIndex, "path", path, "state.hash", state.hash)
+	log.Trace("iterator.go Next peek succeeded.", "parentIndex", &parentIndex, "path", path, "state.hash", state.hash)
 	it.push(state, parentIndex, path)
 	return true
 }

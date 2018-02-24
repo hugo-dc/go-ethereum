@@ -430,11 +430,10 @@ func (t *Trie) resolve(n node, prefix []byte) (node, error) {
 }
 
 func (t *Trie) resolveHash(n hashNode, prefix []byte) (node, error) {
-	log.Trace("trie.go resolveHash.")
 	cacheMissCounter.Inc(1)
 
 	hash := common.BytesToHash(n)
-	log.Trace("trie.go resolveHash hitting db..")
+	log.Trace("trie.go resolveHash. hitting db to get", "hash", hash)
 	enc, err := t.db.Node(hash)
 	if err != nil || enc == nil {
 		return nil, &MissingNodeError{NodeHash: hash, Path: prefix}
@@ -449,9 +448,8 @@ func (t *Trie) Root() []byte { return t.Hash().Bytes() }
 // Hash returns the root hash of the trie. It does not write to the
 // database and can be used even if the trie doesn't have one.
 func (t *Trie) Hash() common.Hash {
-	log.Trace("trie.go Hash. returning root hash..")
 	hash, cached, _ := t.hashRoot(nil, nil)
-	log.Trace("trie.go Hash.", "root", common.BytesToHash(hash.(hashNode)))
+	log.Trace("trie.go Hash. returning root hash..", "root", common.BytesToHash(hash.(hashNode)))
 	t.root = cached
 	return common.BytesToHash(hash.(hashNode))
 }

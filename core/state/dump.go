@@ -113,8 +113,10 @@ func (self *StateDB) performDump(c collector) {
 	// log.Info("Loaded most recent local header", "number", currentHeader.Number, "hash", currentHeader.Hash(), "td", headerTd)
 	log.Info("dump.go performDump")
 	c.onRoot(self.trie.Hash())
+	log.Info("dump.go performDump did c.onRoot. creating trie.NewIterator..")
 
 	it := trie.NewIterator(self.trie.NodeIterator(nil))
+	log.Info("dump.go performDump. NewIterator created. starting it.Next() loop..")
 	for it.Next() {
 		log.Trace("dump.go performDump it.Next..")
 		addr := self.trie.GetKey(it.Key)
