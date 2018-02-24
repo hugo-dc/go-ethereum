@@ -181,6 +181,7 @@ func (db *LDBDatabase) MultiPut(tuples ...[]byte) error {
 			log.Info("ethdb/database.go MultiPut calling CreateBucketIfNotExists.", "tuples", tuples, "bucketStart", bucketStart)
 			b, err := tx.CreateBucketIfNotExists(tuples[bucketStart])
 			if err != nil {
+				log.Info("ethdb/database.go MultiPut call to CreateBucketIfNotExists failed!", "err", err)
 				return err
 			}
 			log.Info("ethdb/database.go MultiPut call to CreateBucketIfNotExists succeeded.")

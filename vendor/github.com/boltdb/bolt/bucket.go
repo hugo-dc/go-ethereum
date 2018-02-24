@@ -159,11 +159,13 @@ func (b *Bucket) openBucket(value []byte) *Bucket {
 // Returns an error if the key already exists, if the bucket name is blank, or if the bucket name is too long.
 // The bucket instance is only valid for the lifetime of the transaction.
 func (b *Bucket) CreateBucket(key []byte) (*Bucket, error) {
+	log.Info("bucket.go CreateBucket.", "key", key)
 	if b.tx.db == nil {
 		return nil, ErrTxClosed
 	} else if !b.tx.writable {
 		return nil, ErrTxNotWritable
 	} else if len(key) == 0 {
+		log.Info("bucket.go CreateBucket error ErrBucketNameRequired")
 		return nil, ErrBucketNameRequired
 	}
 
