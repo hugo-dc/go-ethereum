@@ -43,6 +43,7 @@ type request struct {
 	parents []*request // Parent state nodes referencing this entry (notify all upon completion)
 	depth   int        // Depth level within the trie the node is located to prioritise DFS
 	deps    int        // Number of dependencies before allowed to commit this node
+	path    []byte
 
 	callback TrieSyncLeafCallback // Callback to invoke if a leaf node it reached on this branch
 }
@@ -119,6 +120,7 @@ func (s *TrieSync) AddSubTrie(bucket []byte, root common.Hash, depth int, parent
 		hash:     root,
 		bucket:   bucket,
 		depth:    depth,
+		path:     [],
 		callback: callback,
 	}
 	// If this sub-trie has a designated parent, link them together
@@ -272,6 +274,7 @@ func (s *TrieSync) children(req *request, object node) ([]*request, error) {
 		node  node
 		nodeKey []byte
 		depth int
+		path []byte
 	}
 	children := []child{}
 
@@ -280,6 +283,7 @@ func (s *TrieSync) children(req *request, object node) ([]*request, error) {
 		children = []child{{
 			node:  node.Val,
 			nodeKey: node.Key,
+			path: node.path,
 			depth: req.depth + len(node.Key),
 		}}
 	case *fullNode:
@@ -287,6 +291,7 @@ func (s *TrieSync) children(req *request, object node) ([]*request, error) {
 			if node.Children[i] != nil {
 				children = append(children, child{
 					node:  node.Children[i],
+					path: append(req.path, byte(i))
 					depth: req.depth + 1,
 				})
 			}
@@ -325,6 +330,7 @@ func (s *TrieSync) children(req *request, object node) ([]*request, error) {
 				bucket:   req.bucket,
 				parents:  []*request{req},
 				depth:    child.depth,
+				path:     child.path,
 				callback: req.callback,
 			})
 		}
