@@ -112,6 +112,7 @@ func (s *TrieSync) AddSubTrie(bucket []byte, root common.Hash, depth int, parent
 	if local, err := decodeNode(key, blob); local != nil && err == nil {
 		return
 	}
+	log.Info("sync.go AddSubTrie.", "root", root, "bucket", bucket)
 	// Assemble the new sub-trie sync request
 	req := &request{
 		hash:     root,
@@ -146,6 +147,8 @@ func (s *TrieSync) AddRawEntry(bucket []byte, hash common.Hash, depth int, paren
 	if ok, _ := s.database.Has(bucket, hash.Bytes()); ok {
 		return
 	}
+	
+	log.Info("sync.go AddRawEntry.", "hash", hash, "bucket", bucket)
 	// Assemble the new sub-trie sync request
 	req := &request{
 		hash:  hash,
@@ -310,6 +313,7 @@ func (s *TrieSync) children(req *request, object node) ([]*request, error) {
 			if ok, _ := s.database.Has(req.bucket, node); ok {
 				continue
 			}
+			log.Info("sync.go children. appending request:", "hash", hash, "bucket", req.bucket)
 			// Locally unknown node, schedule for retrieval
 			requests = append(requests, &request{
 				hash:     hash,

@@ -455,6 +455,7 @@ func (s *stateSync) process(req *stateReq) (bool, error) {
 // peer into the state trie, returning whether anything useful was written or any
 // error occurred.
 func (s *stateSync) processNodeData(blob []byte) (bool, common.Hash, error) {
+	log.Info("statesync.go processNodeData")
 	res := trie.SyncResult{Data: blob}
 	s.keccak.Reset()
 	s.keccak.Write(blob)
