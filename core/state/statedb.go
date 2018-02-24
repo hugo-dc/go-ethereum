@@ -648,6 +648,7 @@ func (s *StateDB) clearJournalAndRefund() {
 
 // CommitTo writes the state to the given database.
 func (s *StateDB) CommitTo(dbw trie.Database, deleteEmptyObjects bool, writeBlockNr uint64) (err error) {
+	log.Info("statedb.go CommitTo")
 	defer s.clearJournalAndRefund()
 	suffix := make([]byte, 8)
 	binary.BigEndian.PutUint64(suffix, writeBlockNr^0xffffffffffffffff - 1)	// Commit objects to the trie.
@@ -730,4 +731,3 @@ func (s *StateDB) CleanForNextBlock(blockNr uint64) {
 	s.logSize = 0
 	s.clearJournalAndRefund()
 }
-

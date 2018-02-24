@@ -125,6 +125,7 @@ func (db *LDBDatabase) Path() string {
 
 // Put puts the given key / value to the queue
 func (db *LDBDatabase) Put(bucket, key []byte, value []byte) error {
+	log.Info("ethdb/database.go db Put.", "bucket", bucket)
 	err := db.db.Update(func(tx *bolt.Tx) error {
 		b, err := tx.CreateBucketIfNotExists(bucket)
 		if err != nil {
@@ -137,6 +138,7 @@ func (db *LDBDatabase) Put(bucket, key []byte, value []byte) error {
 
 // Put puts the given key / value to the queue
 func (db *LDBDatabase) PutS(bucket, key, suffix, value []byte) error {
+	log.Info("ethdb/database.go db PutS.", "bucket", bucket)
 	composite := make([]byte, len(key) + len(suffix))
 	copy(composite, key)
 	copy(composite[len(key):], suffix)
@@ -801,10 +803,12 @@ func NewTable(db Database, prefix string) Database {
 }
 
 func (dt *table) Put(bucket, key []byte, value []byte) error {
+	log.Info("ethdb/database.go table Put.", "bucket", bucket)
 	return dt.db.Put(bucket, append([]byte(dt.prefix), key...), value)
 }
 
 func (dt *table) PutS(bucket, key, suffix, value []byte) error {
+	log.Info("ethdb/database.go table PutS.", "bucket", bucket)
 	return dt.db.PutS(bucket, append([]byte(dt.prefix), key...), suffix, value)
 }
 
