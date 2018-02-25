@@ -75,7 +75,7 @@ func newSyncMemBatch() *syncMemBatch {
 // TrieSyncLeafCallback is a callback type invoked when a trie sync reaches a
 // leaf node. It's used by state syncing to check if the leaf node requires some
 // further data syncing.
-type TrieSyncLeafCallback func(leaf []byte, parent common.Hash) error
+type TrieSyncLeafCallback func(leaf []byte, nodeKey []byte, parent common.Hash) error
 
 // TrieSync is the main state trie synchronisation scheduler, which provides yet
 // unknown trie hashes to retrieve, accepts node data associated with said hashes
