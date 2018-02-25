@@ -92,7 +92,8 @@ func (db *cachingDB) OpenTrie(root common.Hash) (Trie, error) {
 func (db *cachingDB) OpenStorageTrie(addr common.Address, root common.Hash) (Trie, error) {
 	// use addrHash as the db "prefix", not addr[:]
 	//return trie.NewSecure(root, addr[:])
-	return trie.NewSecure(root, crypto.Keccak256Hash(addr[:]).Bytes())
+	addrHash := crypto.Keccak256Hash(addr[:]).Bytes()
+	return trie.NewSecure(root, addrHash[len(addrHash)-16:])
 }
 
 func (db *cachingDB) CopyTrie(t Trie) Trie {
