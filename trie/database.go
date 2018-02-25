@@ -137,7 +137,7 @@ func (db *Database) Node(hash common.Hash) ([]byte, error) {
 // preimage retrieves a cached trie node pre-image from memory. If it cannot be
 // found cached, the method queries the persistent database for the content.
 func (db *Database) preimage(hash common.Hash) ([]byte, error) {
-	log.Info("trie/database.go preimage.", "hash", hash)
+	log.Debug("trie/database.go preimage.", "hash", hash)
 	// Retrieve the node from cache if available
 	
 	// is this RLock really necessary??
