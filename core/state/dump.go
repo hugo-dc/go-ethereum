@@ -20,7 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	
-	"encoding/hex"
+	//"encoding/hex"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rlp"
