@@ -116,12 +116,15 @@ func (self *StateDB) performDump(c collector) {
 	c.onRoot(self.trie.Hash())
 	log.Info("dump.go performDump did c.onRoot. creating trie.NewIterator..")
 	
-	
+	/*
 	testAddrHash, _ := hex.DecodeString("00000013653234c2d78dcdc645c5141e358ef2e590fe5278778ba729ff5ffd95")
 	testAddr := self.trie.GetKey(testAddrHash)
 	log.Info("dump.go performDump. got key for testAddr:", "testAddrHash", testAddrHash, "testAddr", testAddr)
+	*/
 
-	it := trie.NewIterator(self.trie.NodeIterator(nil))
+	// it := trie.NewIterator(self.trie.NodeIterator(nil)) // original line, start iterator at first node
+	// []byte{222, 25, 128, ... is hash of address 0x18a672e11d637fffadccc99b152f4895da069601
+	it := trie.NewIterator(self.trie.NodeIterator([]byte{222, 25, 128, 196, 57, 143, 2, 17, 141, 15, 19, 143, 159, 138, 192, 59, 175, 92, 104, 25, 100, 184, 218, 27, 44, 166, 239, 155, 253, 179, 123, 67}))
 	log.Info("dump.go performDump. NewIterator created. starting it.Next() loop..")
 	for it.Next() {
 		log.Trace("dump.go ------ performDump it.Next --------")

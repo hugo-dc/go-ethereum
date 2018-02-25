@@ -118,6 +118,7 @@ func newNodeIterator(trie *Trie, start []byte) NodeIterator {
 	if trie.Hash() == emptyState {
 		return new(nodeIterator)
 	}
+	log.Trace("iterator.go newNodeIterator trie is not empty. seeking to start.", "start", start)
 	it := &nodeIterator{trie: trie}
 	it.err = it.seek(start)
 	return it
