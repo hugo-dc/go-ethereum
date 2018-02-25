@@ -34,7 +34,7 @@ func NewStateSync(root common.Hash, database trie.DatabaseReader) *trie.TrieSync
 			return err
 		}
 		
-		log.Info("core/state/sync.go NewStateSync leaf callback.", "Account obj", obj)
+		log.Debug("core/state/sync.go NewStateSync leaf callback.", "Account obj", obj)
 		
 		// FIXME: This is broken - we do not know the account's address at this point
 		//syncer.AddSubTrie([]byte{}, obj.Root, 64, parent, nil)
@@ -50,7 +50,7 @@ func NewStateSync(root common.Hash, database trie.DatabaseReader) *trie.TrieSync
 			}
 		*/
 		//log.Info("core/state/sync.go NewStateSync leaf callback.", "parent.Bytes", parent.Bytes())
-		log.Info("core/state/sync.go NewStateSync leaf callback.", "parent.hash", parent)
+		log.Debug("core/state/sync.go NewStateSync leaf callback.", "parent.hash", parent)
 		
 		syncer.AddSubTrie(nodeKey[len(nodeKey)-16:], obj.Root, 64, parent, nil)
 
