@@ -28,7 +28,7 @@ import (
 // NewStateSync create a new state trie download scheduler.
 func NewStateSync(root common.Hash, database trie.DatabaseReader) *trie.TrieSync {
 	var syncer *trie.TrieSync
-	callback := func(leaf []byte, parent common.Hash) error {
+	callback := func(leaf []byte, nodeKey []byte, parent common.Hash) error {
 		var obj Account
 		if err := rlp.Decode(bytes.NewReader(leaf), &obj); err != nil {
 			return err
@@ -51,13 +51,15 @@ func NewStateSync(root common.Hash, database trie.DatabaseReader) *trie.TrieSync
 		*/
 		//log.Info("core/state/sync.go NewStateSync leaf callback.", "parent.Bytes", parent.Bytes())
 		log.Info("core/state/sync.go NewStateSync leaf callback.", "parent.hash", parent)
+		
+		syncer.AddSubTrie(nodeKey[len(nodeKey)-16:], obj.Root, 64, parent, nil)
 
 		// the storage trie is supposed to have the address of the account as the prefix
 		// use addrHash as the bucket instead crypto.Keccak256Hash(address[:]).Bytes()
 
 		//syncer.AddSubTrie(StorageBucket, obj.Root, 64, parent, nil)
+		syncer.AddRawEntry(CodeBucket, common.BytesToHash(obj.CodeHash), 64, parent)
 
-		//syncer.AddRawEntry(CodeBucket, common.BytesToHash(obj.CodeHash), 64, parent)
 		return nil
 	}
 	log.Debug("core/state/sync.go NewStateSync calling NewTrieSync.", "root", root, "bucket", AccountsBucket)
