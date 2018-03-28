@@ -122,9 +122,10 @@ func (self *StateDB) performDump(c collector) {
 	log.Info("dump.go performDump. got key for testAddr:", "testAddrHash", testAddrHash, "testAddr", testAddr)
 	*/
 
-	// it := trie.NewIterator(self.trie.NodeIterator(nil)) // original line, start iterator at first node
+	it := trie.NewIterator(self.trie.NodeIterator(nil)) // original line, start iterator at first node
 	// []byte{222, 25, 128, ... is hash of address 0x18a672e11d637fffadccc99b152f4895da069601
-	it := trie.NewIterator(self.trie.NodeIterator([]byte{222, 25, 128, 196, 57, 143, 2, 17, 141, 15, 19, 143, 159, 138, 192, 59, 175, 92, 104, 25, 100, 184, 218, 27, 44, 166, 239, 155, 253, 179, 123, 67}))
+	// start dump specific account
+	//it := trie.NewIterator(self.trie.NodeIterator([]byte{222, 25, 128, 196, 57, 143, 2, 17, 141, 15, 19, 143, 159, 138, 192, 59, 175, 92, 104, 25, 100, 184, 218, 27, 44, 166, 239, 155, 253, 179, 123, 67}))
 	log.Info("dump.go performDump. NewIterator created. starting it.Next() loop..")
 	for it.Next() {
 		log.Trace("dump.go ------ performDump it.Next --------")
@@ -143,13 +144,13 @@ func (self *StateDB) performDump(c collector) {
 			Code:     common.Bytes2Hex(obj.Code(self.db)),
 			Storage:  make(map[string]string),
 		}
-		log.Trace("dump.go ----- performDump it.Next initiating storage trie iterator -------")
+		log.Debug("dump.go ----- performDump it.Next initiating storage trie iterator -------")
 		storageIt := trie.NewIterator(obj.getTrie(self.db).NodeIterator(nil))
 		for storageIt.Next() {
 			log.Trace("dump.go performDump storageIt.Next(). got storage key:", "storageIt.Key", storageIt.Key)
 			account.Storage[common.Bytes2Hex(self.trie.GetKey(storageIt.Key))] = common.Bytes2Hex(storageIt.Value)
 		}
-		log.Trace("dump.go ----- performDump it.Next got account and all storage. ------")
+		log.Debug("dump.go ----- performDump it.Next got account and all storage. ------")
 		c.onAccount(common.Bytes2Hex(addr), account)
 	}
 }
