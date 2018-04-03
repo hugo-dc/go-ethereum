@@ -228,8 +228,10 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 		log.Info("genesis.go ToBlock creating NewMemDatabase...")
 		db, _ = ethdb.NewMemDatabase()
 	}
+	var statedb *StateDB
+
 	log.Info("genesis.go ToBlock creating new statedb...")
-	statedb, _ := state.New(common.Hash{}, state.NewDatabase(db))
+	statedb, _ = state.New(common.Hash{}, state.NewDatabase(db))
 
 	i := 0
 	log.Info("genesis.go ToBlock looping over accounts...")
@@ -248,8 +250,8 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 			log.Info("account i. calling statedb.commit...")
 			interRoot, _ := statedb.Commit(false)
 			log.Info("genesis.go ToBlock committed and got intermediate root:", "interRoot", interRoot)
-			statedb, _ = state.New(interRoot, state.NewDatabase(db))
-			log.Info("genesis.go ToBlock got new statedb.")
+			statedb, err = state.New(interRoot, state.NewDatabase(db))
+			log.Info("genesis.go ToBlock got new statedb.", "err", err)
 		}
 		i += 1
 	}
