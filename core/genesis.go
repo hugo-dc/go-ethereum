@@ -246,7 +246,7 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 		if i%10000 == 0 {
 			log.Info("account i.", "i", i)
 			log.Info("account i. calling statedb.commit...")
-			interRoot, _ = statedb.Commit(false)
+			interRoot, _ := statedb.Commit(false)
 			log.Info("genesis.go ToBlock committed and got intermediate root:", "interRoot", interRoot)
 			statedb, _ = state.New(interRoot, state.NewDatabase(db))
 			log.Info("genesis.go ToBlock got new statedb.")
