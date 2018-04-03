@@ -165,6 +165,7 @@ func SetupGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainConfig
 			log.Info("Writing custom genesis block")
 		}
 		block, err := genesis.Commit(db)
+		log.Info("genesis.go SetupGenesisBlock genesis.commit returned block. now returning genesis.config and block hash..")
 		return genesis.Config, block.Hash(), err
 	}
 
@@ -301,7 +302,9 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 // Commit writes the block and state of a genesis specification to the database.
 // The block is committed as the canonical head block.
 func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
+	log.Info("genesis.go Commit. calling g.ToBlock...")
 	block := g.ToBlock(db)
+	log.Info("genesis.go Commit. ToBlock returned block...")
 	if block.Number().Sign() != 0 {
 		return nil, fmt.Errorf("can't commit genesis block with number > 0")
 	}
@@ -327,6 +330,7 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 	if config == nil {
 		config = params.AllEthashProtocolChanges
 	}
+	log.Info("genesis.go Commit. returning block and chain config...")
 	return block, WriteChainConfig(db, block.Hash(), config)
 }
 
