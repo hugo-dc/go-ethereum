@@ -274,7 +274,7 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 		}
 		i += 1
 	}
-	log.Info("genesis.go ToBlock all account alloc'd. calling statedb.IntermediateRoot...")
+	log.Info("genesis.go ToBlock all accounts alloc'd. calling statedb.IntermediateRoot...")
 	root := statedb.IntermediateRoot(false)
 	log.Info("genesis.go ToBlock got root.", "root", root)
 	head := &types.Header{
@@ -312,23 +312,30 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 	block := g.ToBlock(db)
 	log.Info("genesis.go Commit. ToBlock returned block...")
 	if block.Number().Sign() != 0 {
-		return nil, fmt.Errorf("can't commit genesis block with number > 0")
+		log.Info("genesis.go Commit. skipping block number > 0 error..")
+		//return nil, fmt.Errorf("can't commit genesis block with number > 0")
 	}
+	log.Info("genesis.go Commit. calling WriteTd..")
 	if err := WriteTd(db, block.Hash(), block.NumberU64(), g.Difficulty); err != nil {
 		return nil, err
 	}
+	log.Info("genesis.go Commit. calling WriteBlock..")
 	if err := WriteBlock(db, block); err != nil {
 		return nil, err
 	}
+	log.Info("genesis.go Commit. calling WriteBlockReceipts..")
 	if err := WriteBlockReceipts(db, block.Hash(), block.NumberU64(), nil); err != nil {
 		return nil, err
 	}
+	log.Info("genesis.go Commit. calling WriteCanonicalHash..")
 	if err := WriteCanonicalHash(db, block.Hash(), block.NumberU64()); err != nil {
 		return nil, err
 	}
+	log.Info("genesis.go Commit. calling WriteHeadBlockHash..")
 	if err := WriteHeadBlockHash(db, block.Hash()); err != nil {
 		return nil, err
 	}
+	log.Info("genesis.go Commit. calling WriteHeadHeaderHash..")
 	if err := WriteHeadHeaderHash(db, block.Hash()); err != nil {
 		return nil, err
 	}

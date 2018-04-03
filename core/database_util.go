@@ -575,17 +575,22 @@ func WriteBlockChainVersion(db ethdb.Putter, vsn int) {
 
 // WriteChainConfig writes the chain config settings to the database.
 func WriteChainConfig(db ethdb.Putter, hash common.Hash, cfg *params.ChainConfig) error {
+	log.Info("database_util.go WriteChainConfig.")
 	// short circuit and ignore if nil config. GetChainConfig
 	// will return a default.
 	if cfg == nil {
+		log.Info("database_util.go WriteChainConfig. cfg is nil, returning nil..")
 		return nil
 	}
 
+	log.Info("database_util.go WriteChainConfig. marshaling cfg..")
 	jsonChainConfig, err := json.Marshal(cfg)
 	if err != nil {
+		log.Info("database_util.go WriteChainConfig. error marshaling cfg.", "err", err)
 		return err
 	}
 
+	log.Info("database_util.go WriteChainConfig. returning db.put..")
 	return db.Put(append(configPrefix, hash[:]...), jsonChainConfig)
 }
 
