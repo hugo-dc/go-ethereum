@@ -165,7 +165,9 @@ func SetupGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainConfig
 			log.Info("Writing custom genesis block")
 		}
 		block, err := genesis.Commit(db)
-		log.Info("genesis.go SetupGenesisBlock genesis.commit returned block. now returning genesis.config and block hash..")
+		log.Info("genesis.go SetupGenesisBlock genesis.commit returned block.")
+		log.Info("genesis.go SetupGenesisBlock genesis.commit returned block. block hash:", "block.Hash()", block.Hash())
+		log.Info("genesis.go SetupGenesisBlock now returning genesis.config and block hash..")
 		return genesis.Config, block.Hash(), err
 	}
 
@@ -249,9 +251,13 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 		}
 		if i%100000 == 0 {
 			log.Info("account i.", "i", i)
+			log.Info("account i. calling statedb.IntermediateRoot...")
+			interRoot := statedb.IntermediateRoot(false)
+			log.Info("got interRoot:", "interRoot", interRoot)
+
 			log.Info("account i. calling statedb.commit...")
-			interRoot, _ := statedb.Commit(false)
-			log.Info("genesis.go ToBlock committed and got intermediate root:", "interRoot", interRoot)
+			interRootCommit, _ := statedb.Commit(false)
+			log.Info("genesis.go ToBlock committed and got intermediate root:", "interRootCommit", interRootCommit)
 
 			log.Info("genesis.go ToBlock calling statedb triedb commit.")
 			statedb.Database().TrieDB().Commit(interRoot, true)
