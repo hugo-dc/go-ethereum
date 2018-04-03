@@ -165,9 +165,10 @@ func SetupGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainConfig
 			log.Info("Writing custom genesis block")
 		}
 		block, err := genesis.Commit(db)
-		log.Info("genesis.go SetupGenesisBlock genesis.commit returned block.")
-		log.Info("genesis.go SetupGenesisBlock genesis.commit returned block. block hash:", "block.Hash()", block.Hash())
+		log.Info("genesis.go SetupGenesisBlock genesis.commit returned. err:", "err", err)
+		log.Info("genesis.go SetupGenesisBlock genesis.commit returned. block hash:", "block.Hash()", block.Hash())
 		log.Info("genesis.go SetupGenesisBlock now returning genesis.config and block hash..")
+		// block is nil if genesis.Commit returned an err..
 		return genesis.Config, block.Hash(), err
 	}
 

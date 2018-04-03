@@ -166,7 +166,8 @@ func initGenesis(ctx *cli.Context) error {
 	log.Info("genesis file decoded.")
 	// Open an initialise both full and light databases
 	stack := makeFullNode(ctx)
-	for _, name := range []string{"chaindata", "lightchaindata"} {
+	//for _, name := range []string{"chaindata", "lightchaindata"} {
+	for _, name := range []string{"chaindata"} {
 		log.Info("opening db...")
 		chaindb, err := stack.OpenDatabase(name, 0, 0)
 		if err != nil {
@@ -176,6 +177,7 @@ func initGenesis(ctx *cli.Context) error {
 		_, hash, err := core.SetupGenesisBlock(chaindb, genesis)
 		log.Info("chaincmd.go SetupGenesisBlock returned.")
 		if err != nil {
+			log.Info("chaincmd.go SetupGenesisBlock failed to write genesis block. err:", "err", err)
 			utils.Fatalf("Failed to write genesis block: %v", err)
 		}
 		log.Info("Successfully wrote genesis state", "database", name, "hash", hash)
