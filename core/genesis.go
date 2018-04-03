@@ -251,8 +251,19 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 			log.Info("account i. calling statedb.commit...")
 			interRoot, _ := statedb.Commit(false)
 			log.Info("genesis.go ToBlock committed and got intermediate root:", "interRoot", interRoot)
-			statedb, err = state.New(interRoot, state.NewDatabase(db))
+
+			log.Info("genesis.go ToBlock calling statedb triedb commit.")
+			statedb.Database().TrieDB().Commit(interRoot, true)
+			log.Info("genesis.go ToBlock statedb triedb committed.")
+
+			log.Info("genesis.go ToBlock calling state.new...")
+			//statedb, err = state.New(interRoot, state.NewDatabase(db))
+			new_statedb, err := state.New(interRoot, state.NewDatabase(db))
 			log.Info("genesis.go ToBlock got new statedb.", "err", err)
+			if err == nil {
+				log.Info("genesis.go ToBlock state.New err is nil. copying to statedb..")
+				statedb = new_statedb
+			}
 		}
 		i += 1
 	}
