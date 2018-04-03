@@ -229,6 +229,7 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 		db, _ = ethdb.NewMemDatabase()
 	}
 	var statedb *state.StateDB
+	var err error
 
 	log.Info("genesis.go ToBlock creating new statedb...")
 	statedb, _ = state.New(common.Hash{}, state.NewDatabase(db))
