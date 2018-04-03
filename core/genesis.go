@@ -230,7 +230,7 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 	}
 	log.Info("genesis.go ToBlock creating new statedb...")
 	statedb, _ := state.New(common.Hash{}, state.NewDatabase(db))
-	
+
 	i := 0
 	log.Info("genesis.go ToBlock looping over accounts...")
 	for addr, account := range g.Alloc {
@@ -242,6 +242,14 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 		statedb.SetNonce(addr, account.Nonce)
 		for key, value := range account.Storage {
 			statedb.SetState(addr, key, value)
+		}
+		if i%10000 == 0 {
+			log.Info("account i.", "i", i)
+			log.Info("account i. calling statedb.commit...")
+			interRoot, _ = statedb.Commit(false)
+			log.Info("genesis.go ToBlock committed and got intermediate root:", "interRoot", interRoot)
+			statedb, _ = state.New(interRoot, state.NewDatabase(db))
+			log.Info("genesis.go ToBlock got new statedb.")
 		}
 		i += 1
 	}
