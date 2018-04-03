@@ -150,6 +150,7 @@ func (e *GenesisMismatchError) Error() string {
 //
 // The returned chain configuration is never nil.
 func SetupGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainConfig, common.Hash, error) {
+	log.Info("genesis.go SetupGenesisBlock...")
 	if genesis != nil && genesis.Config == nil {
 		return params.AllEthashProtocolChanges, common.Hash{}, errGenesisNoConfig
 	}
@@ -222,19 +223,31 @@ func (g *Genesis) configOrDefault(ghash common.Hash) *params.ChainConfig {
 // ToBlock creates the genesis block and writes state of a genesis specification
 // to the given database (or discards it if nil).
 func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
+	log.Info("genesis.go ToBlock...")
 	if db == nil {
+		log.Info("genesis.go ToBlock creating NewMemDatabase...")
 		db, _ = ethdb.NewMemDatabase()
 	}
+	log.Info("genesis.go ToBlock creating new statedb...")
 	statedb, _ := state.New(common.Hash{}, state.NewDatabase(db))
+	
+	i := 0
+	log.Info("genesis.go ToBlock looping over accounts...")
 	for addr, account := range g.Alloc {
+		if i%1000 == 0 {
+			log.Info("account i.", "i", i)
+		}
 		statedb.AddBalance(addr, account.Balance)
 		statedb.SetCode(addr, account.Code)
 		statedb.SetNonce(addr, account.Nonce)
 		for key, value := range account.Storage {
 			statedb.SetState(addr, key, value)
 		}
+		i += 1
 	}
+	log.Info("genesis.go ToBlock all account alloc'd. calling statedb.IntermediateRoot...")
 	root := statedb.IntermediateRoot(false)
+	log.Info("genesis.go ToBlock got root.")
 	head := &types.Header{
 		Number:     new(big.Int).SetUint64(g.Number),
 		Nonce:      types.EncodeNonce(g.Nonce),
@@ -254,9 +267,12 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 	if g.Difficulty == nil {
 		head.Difficulty = params.GenesisDifficulty
 	}
+	log.Info("genesis.go ToBlock calling statedb.commit..")
 	statedb.Commit(false)
+	log.Info("genesis.go ToBlock calling triedb.commit..")
 	statedb.Database().TrieDB().Commit(root, true)
 
+	log.Info("genesis.go ToBlock returning new block")
 	return types.NewBlock(head, nil, nil, nil)
 }
 
