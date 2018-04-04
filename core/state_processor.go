@@ -54,6 +54,8 @@ func NewStateProcessor(config *params.ChainConfig, bc *BlockChain, engine consen
 // returns the amount of gas that was used in the process. If any of the
 // transactions failed to execute due to insufficient gas it will return an error.
 func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, error) {
+	log.Info("state_processor.go Process block.", "number", block.Number(), "hash", block.Hash())
+	processStart := time.Now()
 	var (
 		receipts types.Receipts
 		usedGas  = new(uint64)
@@ -75,6 +77,8 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		receipts = append(receipts, receipt)
 		allLogs = append(allLogs, receipt.Logs...)
 	}
+	processWithoutFinalizeTime := time.since(processStart)
+	log.Info("process time (without calculating state root):", "processWithoutFinalizeTime", common.PrettyDuration(processWithoutFinalizeTime))
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
 	p.engine.Finalize(p.bc, header, statedb, block.Transactions(), block.Uncles(), receipts)
 

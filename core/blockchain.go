@@ -1191,12 +1191,15 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 		if err != nil {
 			return i, events, coalescedLogs, err
 		}
+		
+		processStart := time.Now()
 		// Process block using the parent state as reference point.
 		receipts, logs, usedGas, err := bc.processor.Process(block, state, bc.vmConfig)
 		if err != nil {
 			bc.reportBlock(block, receipts, err)
 			return i, events, coalescedLogs, err
 		}
+		processTime := time.since(processStart)
 		// Validate the state using the default validator
 		err = bc.Validator().ValidateState(block, parent, state, receipts, usedGas)
 		if err != nil {
@@ -1214,7 +1217,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 		case CanonStatTy:
 			elapsed := time.Since(bstart)
 			log.Info("Inserted new block", "number", block.Number(), "hash", block.Hash(), "uncles", len(block.Uncles()),
-				"txs", len(block.Transactions()), "gas", block.GasUsed(), "mgasps", float64(block.GasUsed()) * 1000 / float64(elapsed), "elapsed", common.PrettyDuration(elapsed))
+				"txs", len(block.Transactions()), "gas", block.GasUsed(), "mgasps", float64(block.GasUsed()) * 1000 / float64(elapsed), "processTime", common.PrettyDuration(processTime), "elapsed", common.PrettyDuration(elapsed))
 			//log.Debug("Inserted new block", "number", block.Number(), "hash", block.Hash(), "uncles", len(block.Uncles()),
 			//	"txs", len(block.Transactions()), "gas", block.GasUsed(), "elapsed", common.PrettyDuration(time.Since(bstart)))
 
