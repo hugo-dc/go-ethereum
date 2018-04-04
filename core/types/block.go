@@ -409,8 +409,8 @@ func (h *Header) String() string {
 	UncleHash:	    %x
 	Coinbase:	    %x
 	Root:		    %x
-	TxSha		    %x
-	ReceiptSha:	    %x
+	TxHash:		    %x
+	ReceiptHash:	    %x
 	Bloom:		    %x
 	Difficulty:	    %v
 	Number:		    %v
