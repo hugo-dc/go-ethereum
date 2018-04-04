@@ -1219,13 +1219,17 @@ func MakeGenesis(ctx *cli.Context) *core.Genesis {
 
 // MakeChain creates a chain manager from set command line flags.
 func MakeChain(ctx *cli.Context, stack *node.Node) (chain *core.BlockChain, chainDb ethdb.Database) {
+	log.Info("flags.go MakeChain calling MakeChainDatabase..")
 	var err error
 	chainDb = MakeChainDatabase(ctx, stack)
-
+	log.Info("flags.go MakeChain MakeChainDatabase returned.")
+	log.Info("flags.go MakeChain calling SetupGenesisBlock...")
 	config, _, err := core.SetupGenesisBlock(chainDb, MakeGenesis(ctx))
+	log.Info("flags.go MakeChain SetupGenesisBlock returned.")
 	if err != nil {
 		Fatalf("%v", err)
 	}
+	log.Info("flags.go MakeChain initializing consensus engine..")
 	var engine consensus.Engine
 	if config.Clique != nil {
 		engine = clique.New(config.Clique, chainDb)
@@ -1254,7 +1258,9 @@ func MakeChain(ctx *cli.Context, stack *node.Node) (chain *core.BlockChain, chai
 		cache.TrieNodeLimit = ctx.GlobalInt(CacheFlag.Name) * ctx.GlobalInt(CacheGCFlag.Name) / 100
 	}
 	vmcfg := vm.Config{EnablePreimageRecording: ctx.GlobalBool(VMEnableDebugFlag.Name)}
+	log.Info("flags.go MakeChain calling core.NewBlockChain..")
 	chain, err = core.NewBlockChain(chainDb, cache, config, engine, vmcfg)
+	log.Info("flags.go MakeChain NewBlockChain returned.")
 	if err != nil {
 		Fatalf("Can't create BlockChain: %v", err)
 	}
