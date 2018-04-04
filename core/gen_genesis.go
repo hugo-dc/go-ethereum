@@ -7,6 +7,7 @@ import (
 	"errors"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
@@ -67,7 +68,7 @@ func (g *Genesis) UnmarshalJSON(input []byte) error {
 		UncleHash  *common.Hash                                `json:"uncleHash"`
 		TransactionsTrie  *common.Hash                         `json:"transactionsTrie"`
 		ReceiptTrie  *common.Hash                              `json:"receiptTrie"`
-		Bloom      *Bloom                                      `json:"bloom"`
+		Bloom      *types.Bloom                                `json:"bloom"`
 		GasUsed    *math.HexOrDecimal64                        `json:"gasUsed"`
 		ParentHash *common.Hash                                `json:"parentHash"`
 	}
