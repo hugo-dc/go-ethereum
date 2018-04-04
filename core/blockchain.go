@@ -919,7 +919,9 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 		triedb.Reference(root, common.Hash{}) // metadata reference to keep trie alive
 		bc.triegc.Push(root, -float32(block.NumberU64()))
 
+		log.Info("blockchain.go WriteBlockWithState checking current..")
 		if current := block.NumberU64(); current > triesInMemory {
+			log.Info("blockchain.go WriteBlockWithState current > triesInMemory.")
 			// Find the next state trie we need to commit
 			header := bc.GetHeaderByNumber(current - triesInMemory)
 			chosen := header.Number.Uint64()
@@ -930,7 +932,9 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 				size  = triedb.Size()
 				limit = common.StorageSize(bc.cacheConfig.TrieNodeLimit) * 1024 * 1024
 			)
+			log.Info("blockchain.go WriteBlockWithState current checking size limit")
 			if size > limit || bc.gcproc > bc.cacheConfig.TrieTimeLimit {
+				log.Info("blockchain.go WriteBlockWithState current limits are exceeded.")
 				// If we're exceeding limits but haven't reached a large enough memory gap,
 				// warn the user that the system is becoming unstable.
 				if chosen < lastWrite+triesInMemory {
@@ -941,20 +945,25 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 						log.Info("State in memory for too long, committing", "time", bc.gcproc, "allowance", bc.cacheConfig.TrieTimeLimit, "optimum", float64(chosen-lastWrite)/triesInMemory)
 					}
 				}
+				log.Info("blockchain.go WriteBlockWithState current checking critical limits..")
 				// If optimum or critical limits reached, write to disk
 				if chosen >= lastWrite+triesInMemory || size >= 2*limit || bc.gcproc >= 2*bc.cacheConfig.TrieTimeLimit {
+					log.Info("blockchain.go WriteBlockWithState current critical limits exceeded. calling triedb.Commit..")
 					triedb.Commit(header.Root, true)
 					lastWrite = chosen
 					bc.gcproc = 0
 				}
 			}
+			log.Info("blockchain.go WriteBlockWithState done checking current.")
 			// Garbage collect anything below our required write retention
 			for !bc.triegc.Empty() {
+				log.Info("blockchain.go WriteBlockWithState triegc not empty..")
 				root, number := bc.triegc.Pop()
 				if uint64(-number) > chosen {
 					bc.triegc.Push(root, number)
 					break
 				}
+				log.Info("blockchain.go WriteBlockWithState triegc calling triedb.dereference..")
 				triedb.Dereference(root.(common.Hash), common.Hash{})
 			}
 		}
