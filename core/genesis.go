@@ -321,7 +321,8 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 	*/
 
 	log.Info("genesis.go ToBlock returning new block")
-	return types.NewBlock(head, nil, nil, nil)
+	//return types.NewBlock(head, nil, nil, nil)
+	return types.NewBlockWithHeader(head)
 }
 
 // Commit writes the block and state of a genesis specification to the database.
