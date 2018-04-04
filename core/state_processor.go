@@ -80,7 +80,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		receipts = append(receipts, receipt)
 		allLogs = append(allLogs, receipt.Logs...)
 	}
-	processWithoutFinalizeTime := time.since(processStart)
+	processWithoutFinalizeTime := time.Since(processStart)
 	log.Info("process time (without calculating state root):", "processWithoutFinalizeTime", common.PrettyDuration(processWithoutFinalizeTime))
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
 	p.engine.Finalize(p.bc, header, statedb, block.Transactions(), block.Uncles(), receipts)
