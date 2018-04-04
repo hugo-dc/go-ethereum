@@ -28,7 +28,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
-	"github.com/ethereum/go-ethereum/core/state"
+	//"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/log"
@@ -51,6 +51,7 @@ type Genesis struct {
 	GasLimit   uint64              `json:"gasLimit"   gencodec:"required"`
 	Difficulty *big.Int            `json:"difficulty" gencodec:"required"`
 	Mixhash    common.Hash         `json:"mixHash"`
+	StateRoot  common.Hash         `json:"stateRoot"`
 	Coinbase   common.Address      `json:"coinbase"`
 	Alloc      GenesisAlloc        `json:"alloc"      gencodec:"required"`
 
@@ -293,7 +294,7 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 		MixDigest:  g.Mixhash,
 		Coinbase:   g.Coinbase,
 		//Root:       root,
-		Root:       g.stateRoot,
+		Root:       g.StateRoot,
 	}
 	if g.GasLimit == 0 {
 		head.GasLimit = params.GenesisGasLimit
