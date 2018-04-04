@@ -52,6 +52,10 @@ type Genesis struct {
 	Difficulty *big.Int            `json:"difficulty" gencodec:"required"`
 	Mixhash    common.Hash         `json:"mixHash"`
 	StateRoot  common.Hash         `json:"stateRoot"`
+	Bloom      []byte              `json:"bloom"`
+	ReceiptTrie  common.Hash       `json:"receiptTrie"`
+	TransactionsTrie  common.Hash  `json:"transactionsTrie"`
+	UncleHash  common.Hash         `json:"uncleHash"`
 	Coinbase   common.Address      `json:"coinbase"`
 	Alloc      GenesisAlloc        `json:"alloc"      gencodec:"required"`
 
@@ -293,6 +297,10 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 		Difficulty: g.Difficulty,
 		MixDigest:  g.Mixhash,
 		Coinbase:   g.Coinbase,
+		UncleHash:   g.UncleHash,
+		TxHash:      g.TransactionsTrie,
+		ReceiptHash: g.ReceiptTrie,
+		Bloom:       g.Bloom,
 		//Root:       root,
 		Root:       g.StateRoot,
 	}
