@@ -127,6 +127,7 @@ func GetHeadHeaderHash(db DatabaseReader) common.Hash {
 
 // GetHeadBlockHash retrieves the hash of the current canonical head block.
 func GetHeadBlockHash(db DatabaseReader) common.Hash {
+	log.Info("database_util.go GetHeadBlockHash..")
 	data, _ := db.Get(headBlockKey)
 	if len(data) == 0 {
 		return common.Hash{}

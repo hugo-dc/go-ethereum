@@ -163,7 +163,8 @@ func SetupGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainConfig
 	// Just commit the new block if there is no stored genesis block.
 	// TODO: fix this to support genesis block with number other than 0
 	stored := GetCanonicalHash(db, 4800000)
-	if (stored == common.Hash{}) {
+	forceWrite := true
+	if (stored == common.Hash{} || forceWrite) {
 		// remove the if check to force write a custom genesis block..
 		if genesis == nil {
 			log.Info("Writing default main-net genesis block")
