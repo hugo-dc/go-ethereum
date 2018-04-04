@@ -52,7 +52,7 @@ type Genesis struct {
 	Difficulty *big.Int            `json:"difficulty" gencodec:"required"`
 	Mixhash    common.Hash         `json:"mixHash"`
 	StateRoot  common.Hash         `json:"stateRoot"`
-	Bloom      Bloom               `json:"bloom"`
+	Bloom      types.Bloom         `json:"bloom"`
 	ReceiptTrie  common.Hash       `json:"receiptTrie"`
 	TransactionsTrie  common.Hash  `json:"transactionsTrie"`
 	UncleHash  common.Hash         `json:"uncleHash"`
