@@ -19,6 +19,7 @@ package core
 import (
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -49,12 +50,14 @@ func NewBlockValidator(config *params.ChainConfig, blockchain *BlockChain, engin
 // header's transaction and uncle roots. The headers are assumed to be already
 // validated at this point.
 func (v *BlockValidator) ValidateBody(block *types.Block) error {
+	log.Info("block_validator.go ValidateBody.")
 	// Check whether the block's known, and if not, that it's linkable
 	if v.bc.HasBlockAndState(block.Hash(), block.NumberU64()) {
 		return ErrKnownBlock
 	}
 	if !v.bc.HasBlockAndState(block.ParentHash(), block.NumberU64()-1) {
 		if !v.bc.HasBlock(block.ParentHash(), block.NumberU64()-1) {
+			log.Info("block_validator.go ValidateBody returning error unknown ancestor..")
 			return consensus.ErrUnknownAncestor
 		}
 		return consensus.ErrPrunedAncestor

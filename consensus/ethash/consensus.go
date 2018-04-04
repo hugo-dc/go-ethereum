@@ -24,6 +24,7 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/consensus"
@@ -68,6 +69,7 @@ func (ethash *Ethash) Author(header *types.Header) (common.Address, error) {
 // VerifyHeader checks whether a header conforms to the consensus rules of the
 // stock Ethereum ethash engine.
 func (ethash *Ethash) VerifyHeader(chain consensus.ChainReader, header *types.Header, seal bool) error {
+	log.Info("consensus.go VerifyHeader.")
 	// If we're running a full engine faking, accept any input as valid
 	if ethash.config.PowMode == ModeFullFake {
 		return nil
@@ -79,6 +81,7 @@ func (ethash *Ethash) VerifyHeader(chain consensus.ChainReader, header *types.He
 	}
 	parent := chain.GetHeader(header.ParentHash, number-1)
 	if parent == nil {
+		log.Info("consensus.go VerifyHeader returning err unknown ancestor..")
 		return consensus.ErrUnknownAncestor
 	}
 	// Sanity checks passed, do a proper verification
@@ -151,6 +154,7 @@ func (ethash *Ethash) VerifyHeaders(chain consensus.ChainReader, headers []*type
 }
 
 func (ethash *Ethash) verifyHeaderWorker(chain consensus.ChainReader, headers []*types.Header, seals []bool, index int) error {
+	log.Info("consensus.go verifyHeaderWorker.")
 	var parent *types.Header
 	if index == 0 {
 		parent = chain.GetHeader(headers[0].ParentHash, headers[0].Number.Uint64()-1)
@@ -158,6 +162,7 @@ func (ethash *Ethash) verifyHeaderWorker(chain consensus.ChainReader, headers []
 		parent = headers[index-1]
 	}
 	if parent == nil {
+		log.Info("consensus.go verifyHeaderWorker returning err unknown ancestor..")
 		return consensus.ErrUnknownAncestor
 	}
 	if chain.GetHeader(headers[index].Hash(), headers[index].Number.Uint64()) != nil {
@@ -509,8 +514,10 @@ func (ethash *Ethash) VerifySeal(chain consensus.ChainReader, header *types.Head
 // Prepare implements consensus.Engine, initializing the difficulty field of a
 // header to conform to the ethash protocol. The changes are done inline.
 func (ethash *Ethash) Prepare(chain consensus.ChainReader, header *types.Header) error {
+	log.Info("consensus.go Prepare.")
 	parent := chain.GetHeader(header.ParentHash, header.Number.Uint64()-1)
 	if parent == nil {
+		log.Info("consensus.go Prepare returning err unknown ancestor..")
 		return consensus.ErrUnknownAncestor
 	}
 	header.Difficulty = ethash.CalcDifficulty(chain, header.Time.Uint64(), parent)
