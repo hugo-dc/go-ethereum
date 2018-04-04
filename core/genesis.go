@@ -289,6 +289,7 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 	log.Info("genesis.go ToBlock g.UncleHash:", "g.UncleHash", g.UncleHash)
 	log.Info("genesis.go ToBlock g.TransactionsTrie:", "g.TransactionsTrie", g.TransactionsTrie)
 	log.Info("genesis.go ToBlock g.ReceiptTrie:", "g.ReceiptTrie", g.ReceiptTrie)
+	log.Info("genesis.go ToBlock g.Bloom:", "g.Bloom", g.Bloom)
 	head := &types.Header{
 		Number:     new(big.Int).SetUint64(g.Number),
 		Nonce:      types.EncodeNonce(g.Nonce),

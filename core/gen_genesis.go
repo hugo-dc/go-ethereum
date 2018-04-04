@@ -67,6 +67,7 @@ func (g *Genesis) UnmarshalJSON(input []byte) error {
 		UncleHash  *common.Hash                                `json:"uncleHash"`
 		TransactionsTrie  *common.Hash                         `json:"transactionsTrie"`
 		ReceiptTrie  *common.Hash                              `json:"receiptTrie"`
+		Bloom      *Bloom                                      `json:"bloom"`
 		GasUsed    *math.HexOrDecimal64                        `json:"gasUsed"`
 		ParentHash *common.Hash                                `json:"parentHash"`
 	}
@@ -108,6 +109,9 @@ func (g *Genesis) UnmarshalJSON(input []byte) error {
 	}
 	if dec.ReceiptTrie != nil {
 		g.ReceiptTrie = *dec.ReceiptTrie
+	}
+	if dec.Bloom != nil {
+		g.Bloom = *dec.Bloom
 	}
 	if dec.UncleHash != nil {
 		g.UncleHash = *dec.UncleHash
