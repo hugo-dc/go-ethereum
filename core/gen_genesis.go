@@ -66,7 +66,7 @@ func (g *Genesis) UnmarshalJSON(input []byte) error {
 		StateRoot  *common.Hash                                `json:"stateRoot"`
 		UncleHash  *common.Hash                                `json:"uncleHash"`
 		TransactionsTrie  *common.Hash                         `json:"transactionsTrie"`
-		ReceiptTrie  *common.Hash                         `json:"receiptTrie"`
+		ReceiptTrie  *common.Hash                              `json:"receiptTrie"`
 		GasUsed    *math.HexOrDecimal64                        `json:"gasUsed"`
 		ParentHash *common.Hash                                `json:"parentHash"`
 	}
@@ -99,6 +99,18 @@ func (g *Genesis) UnmarshalJSON(input []byte) error {
 	}
 	if dec.Coinbase != nil {
 		g.Coinbase = *dec.Coinbase
+	}
+	if dec.StateRoot != nil {
+		g.StateRoot = *dec.StateRoot
+	}
+	if dec.TransactionsTrie != nil {
+		g.TransactionsTrie = *dec.TransactionsTrie
+	}
+	if dec.ReceiptTrie != nil {
+		g.ReceiptTrie = *dec.ReceiptTrie
+	}
+	if dec.UncleHash != nil {
+		g.UncleHash = *dec.UncleHash
 	}
 	if dec.Alloc == nil {
 		return errors.New("missing required field 'alloc' for Genesis")
