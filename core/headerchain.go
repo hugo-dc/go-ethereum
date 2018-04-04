@@ -69,6 +69,7 @@ type HeaderChain struct {
 //  procInterrupt points to the parent's interrupt semaphore
 //  wg points to the parent's shutdown wait group
 func NewHeaderChain(chainDb ethdb.Database, config *params.ChainConfig, engine consensus.Engine, procInterrupt func() bool) (*HeaderChain, error) {
+	log.Info("headerchain.go NewHeaderChain")
 	headerCache, _ := lru.New(headerCacheLimit)
 	tdCache, _ := lru.New(tdCacheLimit)
 	numberCache, _ := lru.New(numberCacheLimit)
@@ -90,7 +91,9 @@ func NewHeaderChain(chainDb ethdb.Database, config *params.ChainConfig, engine c
 		engine:        engine,
 	}
 
-	hc.genesisHeader = hc.GetHeaderByNumber(0)
+	log.Info("headerchain.go NewHeaderChain setting genesis header..")
+	//hc.genesisHeader = hc.GetHeaderByNumber(0)
+	hc.genesisHeader = hc.GetHeaderByNumber(4800000)
 	if hc.genesisHeader == nil {
 		return nil, ErrNoGenesis
 	}
