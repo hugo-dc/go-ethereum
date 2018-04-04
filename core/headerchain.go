@@ -348,13 +348,16 @@ func (hc *HeaderChain) GetHeader(hash common.Hash, number uint64) *types.Header 
 		log.Info("headerchain.go GetHeader returning result from cache..")
 		return header.(*types.Header)
 	}
-	log.Info("headerchain.go GetHeader calling GetHeader")
+	log.Info("headerchain.go GetHeader calling hc.chainDb GetHeader")
 	header := GetHeader(hc.chainDb, hash, number)
+	log.Info("headerchain.go GetHeader got result from hc.chainDb")
 	if header == nil {
+		log.Info("headerchain.go GetHeader returning nil..")
 		return nil
 	}
 	// Cache the found header for next time and return
 	hc.headerCache.Add(hash, header)
+	log.Info("headerchain.go GetHeader returning header.")
 	return header
 }
 

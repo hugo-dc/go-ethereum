@@ -228,6 +228,7 @@ func (g *Genesis) configOrDefault(ghash common.Hash) *params.ChainConfig {
 // to the given database (or discards it if nil).
 func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 	log.Info("genesis.go ToBlock...")
+	/*
 	if db == nil {
 		log.Info("genesis.go ToBlock creating NewMemDatabase...")
 		db, _ = ethdb.NewMemDatabase()
@@ -278,6 +279,8 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 	log.Info("genesis.go ToBlock all accounts alloc'd. calling statedb.IntermediateRoot...")
 	root := statedb.IntermediateRoot(false)
 	log.Info("genesis.go ToBlock got root.", "root", root)
+	*/
+	log.Info("genesis.go ToBlock only saving block header..")
 	head := &types.Header{
 		Number:     new(big.Int).SetUint64(g.Number),
 		Nonce:      types.EncodeNonce(g.Nonce),
@@ -289,7 +292,8 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 		Difficulty: g.Difficulty,
 		MixDigest:  g.Mixhash,
 		Coinbase:   g.Coinbase,
-		Root:       root,
+		//Root:       root,
+		Root:       g.stateRoot,
 	}
 	if g.GasLimit == 0 {
 		head.GasLimit = params.GenesisGasLimit
@@ -297,10 +301,12 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 	if g.Difficulty == nil {
 		head.Difficulty = params.GenesisDifficulty
 	}
+	/*
 	log.Info("genesis.go ToBlock calling statedb.commit..")
 	statedb.Commit(false)
 	log.Info("genesis.go ToBlock calling triedb.commit..")
 	statedb.Database().TrieDB().Commit(root, true)
+	*/
 
 	log.Info("genesis.go ToBlock returning new block")
 	return types.NewBlock(head, nil, nil, nil)
