@@ -929,50 +929,52 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 			if header == nil {
 				log.Info("blockchain.go WriteBlockWithState header is nil!")
 			}
-			chosen := header.Number.Uint64()
-			log.Info("blockchain.go WriteBlockWithState got header number.", "chosen", chosen)
+			if header != nil {
+				chosen := header.Number.Uint64()
+				log.Info("blockchain.go WriteBlockWithState got header number.", "chosen", chosen)
 
-			// Only write to disk if we exceeded our memory allowance *and* also have at
-			// least a given number of tries gapped.
-			var (
-				size  = triedb.Size()
-				limit = common.StorageSize(bc.cacheConfig.TrieNodeLimit) * 1024 * 1024
-			)
-			log.Info("blockchain.go WriteBlockWithState current checking size limit")
-			if size > limit || bc.gcproc > bc.cacheConfig.TrieTimeLimit {
-				log.Info("blockchain.go WriteBlockWithState current limits are exceeded.")
-				// If we're exceeding limits but haven't reached a large enough memory gap,
-				// warn the user that the system is becoming unstable.
-				if chosen < lastWrite+triesInMemory {
-					switch {
-					case size >= 2*limit:
-						log.Warn("State memory usage too high, committing", "size", size, "limit", limit, "optimum", float64(chosen-lastWrite)/triesInMemory)
-					case bc.gcproc >= 2*bc.cacheConfig.TrieTimeLimit:
-						log.Info("State in memory for too long, committing", "time", bc.gcproc, "allowance", bc.cacheConfig.TrieTimeLimit, "optimum", float64(chosen-lastWrite)/triesInMemory)
+				// Only write to disk if we exceeded our memory allowance *and* also have at
+				// least a given number of tries gapped.
+				var (
+					size  = triedb.Size()
+					limit = common.StorageSize(bc.cacheConfig.TrieNodeLimit) * 1024 * 1024
+				)
+				log.Info("blockchain.go WriteBlockWithState current checking size limit")
+				if size > limit || bc.gcproc > bc.cacheConfig.TrieTimeLimit {
+					log.Info("blockchain.go WriteBlockWithState current limits are exceeded.")
+					// If we're exceeding limits but haven't reached a large enough memory gap,
+					// warn the user that the system is becoming unstable.
+					if chosen < lastWrite+triesInMemory {
+						switch {
+						case size >= 2*limit:
+							log.Warn("State memory usage too high, committing", "size", size, "limit", limit, "optimum", float64(chosen-lastWrite)/triesInMemory)
+						case bc.gcproc >= 2*bc.cacheConfig.TrieTimeLimit:
+							log.Info("State in memory for too long, committing", "time", bc.gcproc, "allowance", bc.cacheConfig.TrieTimeLimit, "optimum", float64(chosen-lastWrite)/triesInMemory)
+						}
+					}
+					log.Info("blockchain.go WriteBlockWithState current checking critical limits..")
+					// If optimum or critical limits reached, write to disk
+					if chosen >= lastWrite+triesInMemory || size >= 2*limit || bc.gcproc >= 2*bc.cacheConfig.TrieTimeLimit {
+						log.Info("blockchain.go WriteBlockWithState current critical limits exceeded. calling triedb.Commit..")
+						triedb.Commit(header.Root, true)
+						lastWrite = chosen
+						bc.gcproc = 0
 					}
 				}
-				log.Info("blockchain.go WriteBlockWithState current checking critical limits..")
-				// If optimum or critical limits reached, write to disk
-				if chosen >= lastWrite+triesInMemory || size >= 2*limit || bc.gcproc >= 2*bc.cacheConfig.TrieTimeLimit {
-					log.Info("blockchain.go WriteBlockWithState current critical limits exceeded. calling triedb.Commit..")
-					triedb.Commit(header.Root, true)
-					lastWrite = chosen
-					bc.gcproc = 0
+				log.Info("blockchain.go WriteBlockWithState done checking current.")
+				// Garbage collect anything below our required write retention
+				for !bc.triegc.Empty() {
+					log.Info("blockchain.go WriteBlockWithState triegc not empty..")
+					root, number := bc.triegc.Pop()
+					if uint64(-number) > chosen {
+						bc.triegc.Push(root, number)
+						break
+					}
+					log.Info("blockchain.go WriteBlockWithState triegc calling triedb.dereference..")
+					triedb.Dereference(root.(common.Hash), common.Hash{})
 				}
-			}
-			log.Info("blockchain.go WriteBlockWithState done checking current.")
-			// Garbage collect anything below our required write retention
-			for !bc.triegc.Empty() {
-				log.Info("blockchain.go WriteBlockWithState triegc not empty..")
-				root, number := bc.triegc.Pop()
-				if uint64(-number) > chosen {
-					bc.triegc.Push(root, number)
-					break
-				}
-				log.Info("blockchain.go WriteBlockWithState triegc calling triedb.dereference..")
-				triedb.Dereference(root.(common.Hash), common.Hash{})
-			}
-		}
+			} // close nil header check
+		} // close current
 	}
 
 	log.Info("blockchain.go WriteBlockWithState calling WriteBlockReceipts...")
