@@ -183,6 +183,7 @@ func SetupGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainConfig
 	if genesis != nil {
 		hash := genesis.ToBlock(nil).Hash()
 		if hash != stored {
+			log.Info("genesis.go SetupGenesisBlock returning genesis mismatch error..")
 			return genesis.Config, hash, &GenesisMismatchError{stored, hash}
 		}
 	}
@@ -202,6 +203,7 @@ func SetupGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainConfig
 	// config is supplied. These chains would get AllProtocolChanges (and a compat error)
 	// if we just continued here.
 	if genesis == nil && stored != params.MainnetGenesisHash {
+		log.Info("genesis.go SetupGenesisBlock returning stored genesis..")
 		return storedcfg, stored, nil
 	}
 
