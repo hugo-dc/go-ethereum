@@ -1212,8 +1212,9 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 		}
 		switch status {
 		case CanonStatTy:
+			elapsed := time.Since(bstart)
 			log.Info("Inserted new block", "number", block.Number(), "hash", block.Hash(), "uncles", len(block.Uncles()),
-				"txs", len(block.Transactions()), "gas", block.GasUsed(), "elapsed", common.PrettyDuration(time.Since(bstart)))
+				"txs", len(block.Transactions()), "gas", block.GasUsed(), "mgasps", float64(block.GasUsed()) * 1000 / float64(elapsed) "elapsed", common.PrettyDuration(elapsed))
 			//log.Debug("Inserted new block", "number", block.Number(), "hash", block.Hash(), "uncles", len(block.Uncles()),
 			//	"txs", len(block.Transactions()), "gas", block.GasUsed(), "elapsed", common.PrettyDuration(time.Since(bstart)))
 
