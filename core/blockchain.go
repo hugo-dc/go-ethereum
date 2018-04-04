@@ -927,6 +927,7 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 			header := bc.GetHeaderByNumber(current - triesInMemory)
 			log.Info("blockchain.go WriteBlockWithState got header.")
 			chosen := header.Number.Uint64()
+			log.Info("blockchain.go WriteBlockWithState got header number.", "chosen", chosen)
 
 			// Only write to disk if we exceeded our memory allowance *and* also have at
 			// least a given number of tries gapped.
