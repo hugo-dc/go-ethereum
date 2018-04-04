@@ -873,6 +873,7 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 	bc.wg.Add(1)
 	defer bc.wg.Done()
 
+	log.Info("blockchain.go WriteBlockWithState calling bc.GetTd on parent..")
 	// Calculate the total difficulty of the block
 	ptd := bc.GetTd(block.ParentHash(), block.NumberU64()-1)
 	if ptd == nil {
@@ -883,18 +884,23 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 	bc.mu.Lock()
 	defer bc.mu.Unlock()
 
+	log.Info("blockchain.go WriteBlockWithState calling bc.GetTd on self..")
 	localTd := bc.GetTd(bc.currentBlock.Hash(), bc.currentBlock.NumberU64())
 	externTd := new(big.Int).Add(block.Difficulty(), ptd)
 
+	log.Info("blockchain.go WriteBlockWithState calling bc.hc.WriteTd")
 	// Irrelevant of the canonical status, write the block itself to the database
 	if err := bc.hc.WriteTd(block.Hash(), block.NumberU64(), externTd); err != nil {
 		return NonStatTy, err
 	}
+
+	log.Info("blockchain.go WriteBlockWithState calling WriteBlock")
 	// Write other block data using a batch.
 	batch := bc.db.NewBatch()
 	if err := WriteBlock(batch, block); err != nil {
 		return NonStatTy, err
 	}
+	log.Info("blockchain.go WriteBlockWithState calling state.Commit")
 	root, err := state.Commit(bc.chainConfig.IsEIP158(block.Number()))
 	if err != nil {
 		return NonStatTy, err
@@ -903,10 +909,12 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 
 	// If we're running an archive node, always flush
 	if bc.cacheConfig.Disabled {
+		log.Info("blockchain.go WriteBlockWithState archive mode. calling triedb.Commit")
 		if err := triedb.Commit(root, false); err != nil {
 			return NonStatTy, err
 		}
 	} else {
+		log.Info("blockchain.go WriteBlockWithState gc mode.")
 		// Full but not archive node, do proper garbage collection
 		triedb.Reference(root, common.Hash{}) // metadata reference to keep trie alive
 		bc.triegc.Push(root, -float32(block.NumberU64()))
@@ -951,6 +959,8 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 			}
 		}
 	}
+
+	log.Info("blockchain.go WriteBlockWithState calling WriteBlockReceipts...")
 	if err := WriteBlockReceipts(batch, block.Hash(), block.NumberU64(), receipts); err != nil {
 		return NonStatTy, err
 	}
@@ -963,6 +973,7 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 		reorg = block.NumberU64() < bc.currentBlock.NumberU64() || (block.NumberU64() == bc.currentBlock.NumberU64() && mrand.Float64() < 0.5)
 	}
 	if reorg {
+		log.Info("blockchain.go WriteBlockWithState doing reorg..")
 		// Reorganise the chain if the parent is not the head block
 		if block.ParentHash() != bc.currentBlock.Hash() {
 			if err := bc.reorg(bc.currentBlock, block); err != nil {
@@ -981,15 +992,19 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 	} else {
 		status = SideStatTy
 	}
+	log.Info("blockchain.go WriteBlockWithState calling batch.Write..")
 	if err := batch.Write(); err != nil {
 		return NonStatTy, err
 	}
 
 	// Set new head.
 	if status == CanonStatTy {
+		log.Info("blockchain.go WriteBlockWithState calling bc.insert")
 		bc.insert(block)
 	}
+	log.Info("blockchain.go WriteBlockWithState calling bc.futureBlocks.Remove")
 	bc.futureBlocks.Remove(block.Hash())
+	log.Info("blockchain.go WriteBlockWithState returning status")
 	return status, nil
 }
 
