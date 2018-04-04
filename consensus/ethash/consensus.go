@@ -180,6 +180,9 @@ func (ethash *Ethash) VerifyUncles(chain consensus.ChainReader, block *types.Blo
 	if ethash.config.PowMode == ModeFullFake {
 		return nil
 	}
+	if ethash.config.PowMode == ModeFake {
+		return nil
+	}
 	// Verify that there are at most 2 uncles included in this block
 	if len(block.Uncles()) > maxUncles {
 		return errTooManyUncles
