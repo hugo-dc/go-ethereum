@@ -926,6 +926,9 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 			log.Info("blockchain.go WriteBlockWithState calling bc.GetHeaderByNumber..")
 			header := bc.GetHeaderByNumber(current - triesInMemory)
 			log.Info("blockchain.go WriteBlockWithState got header.")
+			if header == nil {
+				log.Info("blockchain.go WriteBlockWithState header is nil!")
+			}
 			chosen := header.Number.Uint64()
 			log.Info("blockchain.go WriteBlockWithState got header number.", "chosen", chosen)
 
