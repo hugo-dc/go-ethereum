@@ -157,8 +157,8 @@ func SetupGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainConfig
 	}
 
 	// Just commit the new block if there is no stored genesis block.
-	stored := GetCanonicalHash(db, 0)
-	if (stored == common.Hash{}) {
+	//stored := GetCanonicalHash(db, 0)
+	//if (stored == common.Hash{}) {
 		if genesis == nil {
 			log.Info("Writing default main-net genesis block")
 			genesis = DefaultGenesisBlock()
@@ -171,7 +171,7 @@ func SetupGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainConfig
 		log.Info("genesis.go SetupGenesisBlock now returning genesis.config and block hash..")
 		// block is nil if genesis.Commit returned an err..
 		return genesis.Config, block.Hash(), err
-	}
+	//}
 
 	// Check whether the genesis block is already written.
 	if genesis != nil {
