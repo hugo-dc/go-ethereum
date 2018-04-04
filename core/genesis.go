@@ -326,7 +326,8 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 	log.Info("genesis.go Commit. calling g.ToBlock...")
 	block := g.ToBlock(db)
-	log.Info("genesis.go Commit. ToBlock returned block...")
+	log.Info("genesis.go Commit. ToBlock returned block.")
+	fmt.Println("got block: %s", block.String())
 	if block.Number().Sign() != 0 {
 		log.Info("genesis.go Commit. skipping block number > 0 error..")
 		//return nil, fmt.Errorf("can't commit genesis block with number > 0")
