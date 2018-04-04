@@ -642,9 +642,12 @@ func (bc *BlockChain) TrieNode(hash common.Hash) ([]byte, error) {
 // Stop stops the blockchain service. If any imports are currently in progress
 // it will abort them using the procInterrupt.
 func (bc *BlockChain) Stop() {
+	log.Info("blockchain.go Stop.")
 	if !atomic.CompareAndSwapInt32(&bc.running, 0, 1) {
+		log.Info("blockchain.go Stop. bc.running is true, returning..")
 		return
 	}
+	log.Info("blockchain.go Stop. unsubscribe subscriptions..")
 	// Unsubscribe all subscriptions registered from blockchain
 	bc.scope.Close()
 	close(bc.quit)
@@ -661,11 +664,18 @@ func (bc *BlockChain) Stop() {
 	//
 	// This may be tuned a bit on mainnet if its too annoying to reprocess the last
 	// N blocks.
+	log.Info("blockchain.go Stop. check if cache mode..")
 	if !bc.cacheConfig.Disabled {
+		log.Info("blockchain.go Stop. write stuff to disk")
 		triedb := bc.stateCache.TrieDB()
 		if number := bc.CurrentBlock().NumberU64(); number >= triesInMemory {
-			recent := bc.GetBlockByNumber(bc.CurrentBlock().NumberU64() - triesInMemory + 1)
-
+			log.Info("blockchain.go Stop. number >= triesInMemory. get recent block..")
+			// this causes a panic!!
+			//recent := bc.GetBlockByNumber(bc.CurrentBlock().NumberU64() - triesInMemory + 1)
+			recent := bc.GetBlockByNumber(bc.CurrentBlock().NumberU64())
+			if recent == nil {
+				log.Info("blockchain.go Stop. recent block is nil!")
+			}
 			log.Info("Writing cached state to disk", "block", recent.Number(), "hash", recent.Hash(), "root", recent.Root())
 			if err := triedb.Commit(recent.Root(), true); err != nil {
 				log.Error("Failed to commit recent state trie", "err", err)
@@ -1202,8 +1212,10 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 		}
 		switch status {
 		case CanonStatTy:
-			log.Debug("Inserted new block", "number", block.Number(), "hash", block.Hash(), "uncles", len(block.Uncles()),
+			log.Info("Inserted new block", "number", block.Number(), "hash", block.Hash(), "uncles", len(block.Uncles()),
 				"txs", len(block.Transactions()), "gas", block.GasUsed(), "elapsed", common.PrettyDuration(time.Since(bstart)))
+			//log.Debug("Inserted new block", "number", block.Number(), "hash", block.Hash(), "uncles", len(block.Uncles()),
+			//	"txs", len(block.Transactions()), "gas", block.GasUsed(), "elapsed", common.PrettyDuration(time.Since(bstart)))
 
 			coalescedLogs = append(coalescedLogs, logs...)
 			blockInsertTimer.UpdateSince(bstart)
