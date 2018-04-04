@@ -63,6 +63,10 @@ func (g *Genesis) UnmarshalJSON(input []byte) error {
 		Coinbase   *common.Address                             `json:"coinbase"`
 		Alloc      map[common.UnprefixedAddress]GenesisAccount `json:"alloc"      gencodec:"required"`
 		Number     *math.HexOrDecimal64                        `json:"number"`
+		StateRoot  *common.Hash                                `json:"stateRoot"`
+		UncleHash  *common.Hash                                `json:"uncleHash"`
+		TransactionsTrie  *common.Hash                         `json:"transactionsTrie"`
+		ReceiptTrie  *common.Hash                         `json:"receiptTrie"`
 		GasUsed    *math.HexOrDecimal64                        `json:"gasUsed"`
 		ParentHash *common.Hash                                `json:"parentHash"`
 	}
