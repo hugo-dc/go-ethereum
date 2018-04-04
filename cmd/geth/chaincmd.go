@@ -191,7 +191,9 @@ func importChain(ctx *cli.Context) error {
 		utils.Fatalf("This command requires an argument.")
 	}
 	stack := makeFullNode(ctx)
+	log.Info("chaincmd.go importChain calling utils.MakeChain")
 	chain, chainDb := utils.MakeChain(ctx, stack)
+	log.Info("chaincmd.go importChain utils.MakeChain returned chain.")
 	defer chainDb.Close()
 
 	// Start periodically gathering memory profiles

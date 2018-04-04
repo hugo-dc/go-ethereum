@@ -203,7 +203,7 @@ func SetupGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainConfig
 	// config is supplied. These chains would get AllProtocolChanges (and a compat error)
 	// if we just continued here.
 	if genesis == nil && stored != params.MainnetGenesisHash {
-		log.Info("genesis.go SetupGenesisBlock returning stored genesis..")
+		log.Info("genesis.go SetupGenesisBlock returning stored genesis.", "stored", stored)
 		return storedcfg, stored, nil
 	}
 
