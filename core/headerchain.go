@@ -91,20 +91,25 @@ func NewHeaderChain(chainDb ethdb.Database, config *params.ChainConfig, engine c
 		engine:        engine,
 	}
 
-	log.Info("headerchain.go NewHeaderChain setting genesis header..")
+	log.Info("headerchain.go NewHeaderChain getting genesis header..")
 	//hc.genesisHeader = hc.GetHeaderByNumber(0)
 	hc.genesisHeader = hc.GetHeaderByNumber(4800000)
 	if hc.genesisHeader == nil {
+		log.Info("headerchain.go NewHeaderChain genesis header is nil..")
 		return nil, ErrNoGenesis
 	}
 
 	hc.currentHeader = hc.genesisHeader
+	log.Info("headerchain.go NewHeaderChain getting head block hash")
 	if head := GetHeadBlockHash(chainDb); head != (common.Hash{}) {
+		log.Info("headerchain.go NewHeaderChain got head block hash:", "head", head)
 		if chead := hc.GetHeaderByHash(head); chead != nil {
+			log.Info("headerchain.go NewHeaderChain got head block header.")
 			hc.currentHeader = chead
 		}
 	}
 	hc.currentHeaderHash = hc.currentHeader.Hash()
+	log.Info("headerchain.go NewHeaderChain returning currentHeaderHash:", "currentHeaderHash", hc.currentHeaderHash)
 
 	return hc, nil
 }
@@ -353,11 +358,11 @@ func (hc *HeaderChain) GetHeader(hash common.Hash, number uint64) *types.Header 
 	}
 	log.Info("headerchain.go GetHeader calling hc.chainDb GetHeader")
 	header := GetHeader(hc.chainDb, hash, number)
-	log.Info("headerchain.go GetHeader got result from hc.chainDb")
 	if header == nil {
 		log.Info("headerchain.go GetHeader returning nil..")
 		return nil
 	}
+	log.Info("headerchain.go GetHeader got result from hc.chainDb GetHeader.", "header.Hash", header.Hash(), "header.number", header.Number.Uint64())
 	// Cache the found header for next time and return
 	hc.headerCache.Add(hash, header)
 	log.Info("headerchain.go GetHeader returning header.")
