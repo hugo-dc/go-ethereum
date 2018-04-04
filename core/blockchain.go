@@ -873,6 +873,7 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 	bc.wg.Add(1)
 	defer bc.wg.Done()
 
+	log.Info("blockchain.go WriteBlockWithState. block:", "number", block.NumberU64(), "hash", block.Hash())
 	log.Info("blockchain.go WriteBlockWithState calling bc.GetTd on parent..")
 	// Calculate the total difficulty of the block
 	ptd := bc.GetTd(block.ParentHash(), block.NumberU64()-1)
@@ -993,6 +994,7 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 		log.Info("blockchain.go WriteBlockWithState doing reorg..")
 		// Reorganise the chain if the parent is not the head block
 		if block.ParentHash() != bc.currentBlock.Hash() {
+			log.Info("blockchain.go WriteBlockWithState.", "block.ParentHash", block.ParentHash(), "bc.currentBlock.Hash", bc.currentBlock.Hash())
 			if err := bc.reorg(bc.currentBlock, block); err != nil {
 				return NonStatTy, err
 			}
@@ -1278,6 +1280,7 @@ func countTransactions(chain []*types.Block) (c int) {
 // to be part of the new canonical chain and accumulates potential missing transactions and post an
 // event about them
 func (bc *BlockChain) reorg(oldBlock, newBlock *types.Block) error {
+	log.Info("blockchain.go reorg...")
 	var (
 		newChain    types.Blocks
 		oldChain    types.Blocks
