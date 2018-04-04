@@ -1000,8 +1000,11 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 //
 // After insertion is done, all accumulated events will be fired.
 func (bc *BlockChain) InsertChain(chain types.Blocks) (int, error) {
+	log.Info("blockchain.go InsertChain. calling bc.insertChain..")
 	n, events, logs, err := bc.insertChain(chain)
+	log.Info("blockchain.go InsertChain. bc.insertChain returned.  calling bc.PostChainEvents..")
 	bc.PostChainEvents(events, logs)
+	log.Info("blockchain.go InsertChain. returning..")
 	return n, err
 }
 

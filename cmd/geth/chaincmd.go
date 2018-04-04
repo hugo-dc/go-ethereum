@@ -186,6 +186,7 @@ func initGenesis(ctx *cli.Context) error {
 }
 
 func importChain(ctx *cli.Context) error {
+	log.Info("chaincmd.go importChain")
 	if len(ctx.Args()) < 1 {
 		utils.Fatalf("This command requires an argument.")
 	}
@@ -210,7 +211,8 @@ func importChain(ctx *cli.Context) error {
 	}()
 	// Import the chain
 	start := time.Now()
-
+	
+	log.Info("chaincmd.go importChain calling utils.importChain...")
 	if len(ctx.Args()) == 1 {
 		if err := utils.ImportChain(chain, ctx.Args().First()); err != nil {
 			log.Error("Import error", "err", err)
@@ -222,6 +224,7 @@ func importChain(ctx *cli.Context) error {
 			}
 		}
 	}
+	log.Info("chaincmd.go importChain calling chain.stop")
 	chain.Stop()
 	fmt.Printf("Import done in %v.\n\n", time.Since(start))
 

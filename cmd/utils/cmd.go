@@ -81,6 +81,7 @@ func StartNode(stack *node.Node) {
 }
 
 func ImportChain(chain *core.BlockChain, fn string) error {
+	log.Info("cmd.go ImportChain")
 	// Watch for Ctrl-C while the import is running.
 	// If a signal is received, the import will stop at the next batch.
 	interrupt := make(chan os.Signal, 1)
@@ -149,11 +150,13 @@ func ImportChain(chain *core.BlockChain, fn string) error {
 		if checkInterrupt() {
 			return fmt.Errorf("interrupted")
 		}
+		log.Info("cmd.go ImportChain calling missingBlocks...")
 		missing := missingBlocks(chain, blocks[:i])
 		if len(missing) == 0 {
 			log.Info("Skipping batch as all blocks present", "batch", batch, "first", blocks[0].Hash(), "last", blocks[i-1].Hash())
 			continue
 		}
+		log.Info("cmd.go ImportChain calling InsertChain...")
 		if _, err := chain.InsertChain(missing); err != nil {
 			return fmt.Errorf("invalid block %d: %v", n, err)
 		}
