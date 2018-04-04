@@ -156,8 +156,10 @@ func GetHeaderRLP(db DatabaseReader, hash common.Hash, number uint64) rlp.RawVal
 // GetHeader retrieves the block header corresponding to the hash, nil if none
 // found.
 func GetHeader(db DatabaseReader, hash common.Hash, number uint64) *types.Header {
+	log.Info("database_util.go GetHeader.", "hash", hash, "number", number)
 	data := GetHeaderRLP(db, hash, number)
 	if len(data) == 0 {
+		log.Info("database_util.go GetHeader GetHeaderRLP returned nil.")
 		return nil
 	}
 	header := new(types.Header)
@@ -165,6 +167,7 @@ func GetHeader(db DatabaseReader, hash common.Hash, number uint64) *types.Header
 		log.Error("Invalid block header RLP", "hash", hash, "err", err)
 		return nil
 	}
+	log.Info("database_util.go GetHeader returning header..")
 	return header
 }
 

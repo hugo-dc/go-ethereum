@@ -157,8 +157,10 @@ func (ethash *Ethash) verifyHeaderWorker(chain consensus.ChainReader, headers []
 	log.Info("consensus.go verifyHeaderWorker.")
 	var parent *types.Header
 	if index == 0 {
+		log.Info("consensus.go verifyHeaderWorker calling chain.GetHeader")
 		parent = chain.GetHeader(headers[0].ParentHash, headers[0].Number.Uint64()-1)
 	} else if headers[index-1].Hash() == headers[index].ParentHash {
+		log.Info("consensus.go verifyHeaderWorker checking headers[index-1]")
 		parent = headers[index-1]
 	}
 	if parent == nil {

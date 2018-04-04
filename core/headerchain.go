@@ -342,10 +342,13 @@ func (hc *HeaderChain) WriteTd(hash common.Hash, number uint64, td *big.Int) err
 // GetHeader retrieves a block header from the database by hash and number,
 // caching it if found.
 func (hc *HeaderChain) GetHeader(hash common.Hash, number uint64) *types.Header {
+	log.Info("headerchain.go GetHeader.", "hash", hash, "number", number)
 	// Short circuit if the header's already in the cache, retrieve otherwise
 	if header, ok := hc.headerCache.Get(hash); ok {
+		log.Info("headerchain.go GetHeader returning result from cache..")
 		return header.(*types.Header)
 	}
+	log.Info("headerchain.go GetHeader calling GetHeader")
 	header := GetHeader(hc.chainDb, hash, number)
 	if header == nil {
 		return nil
