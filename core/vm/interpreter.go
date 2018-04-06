@@ -194,6 +194,8 @@ func (in *Interpreter) Run(contract *Contract, input []byte) (ret []byte, err er
 			}
 		}
 
+		opStartTime = time.Now()
+
 		if !in.cfg.DisableGasMetering {
 			// consume the gas and return an error if not enough gas is available.
 			// cost is explicitly set so that the capture state defer method cas get the proper cost
@@ -210,8 +212,6 @@ func (in *Interpreter) Run(contract *Contract, input []byte) (ret []byte, err er
 			in.cfg.Tracer.CaptureState(in.evm, pc, op, gasCopy, cost, mem, stack, contract, in.evm.depth, err)
 			logged = true
 		}
-
-		opStartTime = time.Now()
 
 		// execute the operation
 		res, err := operation.execute(&pc, in.evm, contract, mem, stack)
