@@ -19,6 +19,7 @@ package vm
 import (
 	"fmt"
 	"sync/atomic"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/params"
@@ -134,6 +135,9 @@ func (in *Interpreter) Run(contract *Contract, input []byte) (ret []byte, err er
 		pcCopy  uint64 // needed for the deferred Tracer
 		gasCopy uint64 // for Tracer to log gas remaining before execution
 		logged  bool   // deferred Tracer should ignore already logged steps
+
+		opStartTime time.Time
+		opRunTime time.Time
 	)
 	contract.Input = input
 
@@ -205,8 +209,15 @@ func (in *Interpreter) Run(contract *Contract, input []byte) (ret []byte, err er
 			logged = true
 		}
 
+		opStartTime = time.Now()
+
 		// execute the operation
 		res, err := operation.execute(&pc, in.evm, contract, mem, stack)
+
+		opRunTime = time.Since(opStartTime)
+
+		log.Info("interperter.go operation.execute time.", "op", op, "elapsed", common.PrettyDuration(opRunTime))
+
 		// verifyPool is a build flag. Pool verification makes sure the integrity
 		// of the integer pool by comparing values to a default value.
 		if verifyPool {
