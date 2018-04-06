@@ -139,7 +139,7 @@ func (in *Interpreter) Run(contract *Contract, input []byte) (ret []byte, err er
 		logged  bool   // deferred Tracer should ignore already logged steps
 
 		opStartTime time.Time
-		opRunTime time.Time
+		opRunTime time.Duration
 	)
 	contract.Input = input
 
