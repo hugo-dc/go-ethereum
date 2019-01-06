@@ -707,6 +707,24 @@ func (api *PrivateDebugAPI) TraceTransaction(ctx context.Context, hash common.Ha
 	return api.traceTx(ctx, msg, vmctx, statedb, config)
 }
 
+func (api *PrivateDebugAPI) TraceTransactionWitness(ctx context.Context, hash common.Hash, config *TraceConfig) (interface{}, error) {
+	// Retrieve the transaction and assemble its EVM context
+	tx, blockHash, _, index := rawdb.ReadTransaction(api.eth.ChainDb(), hash)
+	if tx == nil {
+		return nil, fmt.Errorf("transaction %#x not found", hash)
+	}
+	reexec := defaultTraceReexec
+	if config != nil && config.Reexec != nil {
+		reexec = *config.Reexec
+	}
+	msg, vmctx, statedb, err := api.computeTxEnv(blockHash, int(index), reexec)
+	if err != nil {
+		return nil, err
+	}
+	// Trace the transaction and return
+	return api.traceTx(ctx, msg, vmctx, statedb, config)
+}
+
 // traceTx configures a new tracer according to the provided configuration, and
 // executes the given message in the provided environment. The return value will
 // be tracer dependent.
