@@ -437,6 +437,7 @@ func TestEwasmPrecompiles(t *testing.T) {
 	}
 }
 
+/*
 func TestExpModEwasmPadding(t *testing.T) {
 	ecRecoverAddr := common.HexToAddress("05")
 	p := PrecompiledContractsEWASM[ecRecoverAddr]
@@ -477,6 +478,7 @@ func TestOutOfBoundsEwasm(t *testing.T) {
 		}
 	}
 }
+*/
 
 func benchmarkPrecompiled(addr string, test precompiledTest, bench *testing.B) {
 	if test.noBenchmark {
@@ -484,9 +486,10 @@ func benchmarkPrecompiled(addr string, test precompiledTest, bench *testing.B) {
 	}
 	p := PrecompiledContractsEWASM[common.HexToAddress(addr)]
 	in := common.Hex2Bytes(test.input)
-	reqGas := p.RequiredGas(in)
+	//reqGas := p.RequiredGas(in)
+	startGas := uint64(100000000)
 	contract := NewContract(AccountRef(common.HexToAddress("1337")),
-		nil, new(big.Int), reqGas)
+		nil, new(big.Int), startGas)
 
 	var (
 		res  []byte
@@ -497,7 +500,7 @@ func benchmarkPrecompiled(addr string, test precompiledTest, bench *testing.B) {
 	bench.Run(fmt.Sprintf("%s-Gas=%d", test.name, contract.Gas), func(bench *testing.B) {
 		bench.ResetTimer()
 		for i := 0; i < bench.N; i++ {
-			contract.Gas = reqGas
+			contract.Gas = startGas
 			copy(data, in)
 			res, err = RunPrecompiledContract(p, data, contract)
 		}
@@ -511,6 +514,7 @@ func benchmarkPrecompiled(addr string, test precompiledTest, bench *testing.B) {
 			bench.Error(fmt.Sprintf("Expected %v, got %v", test.expected, common.Bytes2Hex(res)))
 			return
 		}
+		fmt.Println("gas used:", startGas - contract.Gas)
 	})
 }
 
