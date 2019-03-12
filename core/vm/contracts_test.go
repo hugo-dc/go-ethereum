@@ -487,7 +487,7 @@ func benchmarkPrecompiled(addr string, test precompiledTest, bench *testing.B) {
 	p := PrecompiledContractsEWASM[common.HexToAddress(addr)]
 	in := common.Hex2Bytes(test.input)
 	//reqGas := p.RequiredGas(in)
-	startGas := uint64(100000000)
+	startGas := uint64(1000000000000)
 	contract := NewContract(AccountRef(common.HexToAddress("1337")),
 		nil, new(big.Int), startGas)
 
