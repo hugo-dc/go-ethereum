@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	"sync/atomic"
 	"time"
@@ -283,6 +284,19 @@ func (cw *contractWrapper) pushObject(vm *duktape.Context) {
 	vm.PutPropString(obj, "getInput")
 }
 
+type Chunk struct {
+	fio  uint8 // firstInstructionOffset
+	code []byte
+}
+
+// cm: Store Contract information
+type ContractData struct {
+	bytecode []byte
+	chunks   []*Chunk
+	touchedOpcodes map[vm.OpCode]bool
+	touchedChunks  map[uint]bool
+}
+
 // Tracer provides an implementation of Tracer that evaluates a Javascript
 // function for each VM execution step.
 type Tracer struct {
@@ -307,11 +321,60 @@ type Tracer struct {
 	refundValue *uint   // Swappable refund value wrapped by a log accessor
 
 	ctx map[string]interface{} // Transaction context gathered throughout execution
+	contractList map[*common.Address]ContractData // cm: Stores information about the contract
 	err error                  // Error, if one has occurred
 
 	interrupt uint32 // Atomic flag to signal execution interruption
 	reason    error  // Textual reason for the interruption
 }
+
+func Chunkify(code []byte, chunkSize uint) []*Chunk {
+	numChunks := uint(math.Ceil(float64(len(code)) / float64(chunkSize)))
+	chunks := make([]*Chunk, numChunks)
+
+	for i := uint(0); i < numChunks; i++ {
+		startIdx := i * chunkSize
+		endIdx := (i + 1) * chunkSize
+		if i == numChunks-1 {
+			endIdx = uint(len(code))
+		}
+		chunks[i] = &Chunk{fio: 0, code: code[startIdx:endIdx]}
+	}
+
+	setFIO(chunks)
+
+	return chunks
+}
+
+func setFIO(chunks []*Chunk) {
+	if len(chunks) < 2 {
+		return
+	}
+
+	chunkSize := len(chunks[0].code)
+
+	for i, chunk := range chunks {
+		if i == len(chunks)-1 {
+			break
+		}
+
+		for j, op := range chunk.code {
+			opcode := vm.OpCode(op)
+			if opcode.IsPush() {
+				size := getPushSize(opcode)
+				if j+size >= chunkSize {
+					nextFIO := (j + size + 1) - chunkSize
+					chunks[i+1].fio = uint8(nextFIO)
+				}
+			}
+		}
+	}
+}
+
+func getPushSize(opcode vm.OpCode) int {
+	return (int(opcode) - 0x60) + 1
+}
+
 
 // New instantiates a new tracer instance. code specifies a Javascript snippet,
 // which must evaluate to an expression returning an object with 'step', 'fault'
@@ -564,6 +627,26 @@ func (jst *Tracer) CaptureState(env *vm.EVM, pc uint64, op vm.OpCode, gas, cost 
 		*jst.costValue = uint(cost)
 		*jst.depthValue = uint(depth)
 		*jst.refundValue = uint(env.StateDB.GetRefund())
+
+		// cm: Capture information about the contract
+		if jst.contractList == nil {
+			jst.contractList = make(map[*common.Address]ContractData)
+			contractData := ContractData {
+				bytecode : contract.Code,
+				touchedOpcodes : make(map[vm.OpCode]bool),
+				touchedChunks : make(map[uint]bool),
+			}
+			if !contractData.touchedOpcodes[op] {
+				contractData.touchedOpcodes[op] = true
+			}
+			chunkNumber := uint(pc) / uint(32)
+			if !contractData.touchedChunks[chunkNumber] {
+				contractData.touchedChunks[chunkNumber] = true
+			}
+			contractData.chunks = Chunkify(contract.Code, 32)
+
+			jst.contractList[contract.CodeAddr] = contractData
+		}
 
 		jst.errorValue = nil
 		if err != nil {
