@@ -293,7 +293,6 @@ type Chunk struct {
 type ContractData struct {
 	bytecode []byte
 	chunks   []*Chunk
-	touchedOpcodes map[vm.OpCode]bool
 	touchedChunks  map[uint]bool
 }
 
@@ -321,7 +320,7 @@ type Tracer struct {
 	refundValue *uint   // Swappable refund value wrapped by a log accessor
 
 	ctx map[string]interface{} // Transaction context gathered throughout execution
-	contractList map[*common.Address]ContractData // cm: Stores information about the contract
+	contractList map[*common.Address]*ContractData // cm: Stores information about the contract
 	err error                  // Error, if one has occurred
 
 	interrupt uint32 // Atomic flag to signal execution interruption
@@ -630,22 +629,30 @@ func (jst *Tracer) CaptureState(env *vm.EVM, pc uint64, op vm.OpCode, gas, cost 
 
 		// cm: Capture information about the contract
 		if jst.contractList == nil {
-			jst.contractList = make(map[*common.Address]ContractData)
-			contractData := ContractData {
+			fmt.Println(">> Starting new contract list...")
+			jst.contractList = make(map[*common.Address]*ContractData)
+		}
+		chunkNumber := uint(pc) / uint(32)
+		if jst.contractList[contract.CodeAddr] == nil {
+			fmt.Println("Contract: ", contract.CodeAddr.String())
+			contractData := &ContractData {
 				bytecode : contract.Code,
-				touchedOpcodes : make(map[vm.OpCode]bool),
 				touchedChunks : make(map[uint]bool),
 			}
-			if !contractData.touchedOpcodes[op] {
-				contractData.touchedOpcodes[op] = true
-			}
-			chunkNumber := uint(pc) / uint(32)
+			
 			if !contractData.touchedChunks[chunkNumber] {
+				fmt.Println("Chunk: ", chunkNumber)
 				contractData.touchedChunks[chunkNumber] = true
 			}
-			contractData.chunks = Chunkify(contract.Code, 32)
 
+			contractData.chunks = Chunkify(contract.Code, 32)
+			fmt.Println("Total chunks: ", len(contractData.chunks))
 			jst.contractList[contract.CodeAddr] = contractData
+		} else {
+			if !jst.contractList[contract.CodeAddr].touchedChunks[chunkNumber] {
+				fmt.Println("Chunk: ", chunkNumber)
+				jst.contractList[contract.CodeAddr].touchedChunks[chunkNumber] = true
+			}
 		}
 
 		jst.errorValue = nil
