@@ -629,28 +629,23 @@ func (jst *Tracer) CaptureState(env *vm.EVM, pc uint64, op vm.OpCode, gas, cost 
 
 		// cm: Capture information about the contract
 		if jst.contractList == nil {
-			fmt.Println(">> Starting new contract list...")
 			jst.contractList = make(map[*common.Address]*ContractData)
 		}
 		chunkNumber := uint(pc) / uint(32)
 		if jst.contractList[contract.CodeAddr] == nil {
-			fmt.Println("Contract: ", contract.CodeAddr.String())
 			contractData := &ContractData {
 				bytecode : contract.Code,
 				touchedChunks : make(map[uint]bool),
 			}
 			
 			if !contractData.touchedChunks[chunkNumber] {
-				fmt.Println("Chunk: ", chunkNumber)
 				contractData.touchedChunks[chunkNumber] = true
 			}
 
 			contractData.chunks = Chunkify(contract.Code, 32)
-			fmt.Println("Total chunks: ", len(contractData.chunks))
 			jst.contractList[contract.CodeAddr] = contractData
 		} else {
 			if !jst.contractList[contract.CodeAddr].touchedChunks[chunkNumber] {
-				fmt.Println("Chunk: ", chunkNumber)
 				jst.contractList[contract.CodeAddr].touchedChunks[chunkNumber] = true
 			}
 		}
