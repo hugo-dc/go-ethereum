@@ -26,6 +26,12 @@ type Trie interface {
 	Update(key, value []byte)
 }
 
+type CodeTrie interface {
+	HashTreeRoot() ([32]byte, error)
+	HashTreeRootWith(*sszlib.Hasher) error
+	GetTree() (*sszlib.Node, error)
+}
+
 type Chunk struct {
 	fio  uint8 // firstInstructionOffset
 	code []byte
@@ -73,6 +79,7 @@ func GetSSZTree(code []byte, chunkSize uint) (*sszlib.Node, error) {
 
 	return codeTrie.GetTree()
 }
+
 func MerkleizeSSZSha(code []byte, chunkSize uint) (common.Hash, error) {
 	codeTrie, err := prepareSSZ(code, chunkSize)
 	if err != nil {
@@ -105,24 +112,64 @@ func MerkleizeSSZKeccak(code []byte, chunkSize uint) (common.Hash, error) {
 	return common.BytesToHash(root[:]), err
 }
 
-func prepareSSZ(code []byte, chunkSize uint) (*ssz.CodeTrie, error) {
-	if chunkSize != 32 {
-		return nil, errors.New("MerkleizeSSZ only supports chunk size of 32")
+func prepareSSZ(code []byte, chunkSize uint) (CodeTrie, error) {
+	rawChunks := Chunkify(code, chunkSize)
+	metadata := &ssz.Metadata{Version: 0, CodeHash: crypto.Keccak256(code), CodeLength: uint16(len(code))}
+	switch chunkSize {
+	case 24:
+		chunks := prepareSSZChunks24(rawChunks)
+		return &ssz.CodeTrie24{Metadata: metadata, Chunks: chunks}, nil
+	case 32:
+		chunks := prepareSSZChunks32(rawChunks)
+		return &ssz.CodeTrie32{Metadata: metadata, Chunks: chunks}, nil
+	case 40:
+		chunks := prepareSSZChunks40(rawChunks)
+		return &ssz.CodeTrie40{Metadata: metadata, Chunks: chunks}, nil
+	default:
+		return nil, errors.New("chunk size should be one of (24, 32, 40)")
 	}
+}
 
-	rawChunks := Chunkify(code, 32)
-	chunks := make([]*ssz.Chunk, len(rawChunks))
+func prepareSSZChunks24(rawChunks []*Chunk) []*ssz.Chunk24 {
+	chunks := make([]*ssz.Chunk24, len(rawChunks))
 	for i, rc := range rawChunks {
 		code := rc.code
-		if len(code) < 32 {
+		if uint(len(code)) < 24 {
+			code = make([]byte, 24)
+			copy(code[:len(rc.code)], rc.code)
+		}
+		chunks[i] = &ssz.Chunk24{FIO: rc.fio, Code: code}
+	}
+
+	return chunks
+}
+
+func prepareSSZChunks32(rawChunks []*Chunk) []*ssz.Chunk32 {
+	chunks := make([]*ssz.Chunk32, len(rawChunks))
+	for i, rc := range rawChunks {
+		code := rc.code
+		if uint(len(code)) < 32 {
 			code = make([]byte, 32)
 			copy(code[:len(rc.code)], rc.code)
 		}
-		chunks[i] = &ssz.Chunk{FIO: rc.fio, Code: code}
+		chunks[i] = &ssz.Chunk32{FIO: rc.fio, Code: code}
 	}
 
-	metadata := &ssz.Metadata{Version: 0, CodeHash: crypto.Keccak256(code), CodeLength: uint16(len(code))}
-	return &ssz.CodeTrie{Metadata: metadata, Chunks: chunks}, nil
+	return chunks
+}
+
+func prepareSSZChunks40(rawChunks []*Chunk) []*ssz.Chunk40 {
+	chunks := make([]*ssz.Chunk40, len(rawChunks))
+	for i, rc := range rawChunks {
+		code := rc.code
+		if uint(len(code)) < 40 {
+			code = make([]byte, 40)
+			copy(code[:len(rc.code)], rc.code)
+		}
+		chunks[i] = &ssz.Chunk40{FIO: rc.fio, Code: code}
+	}
+
+	return chunks
 }
 
 func merkleize(code []byte, chunkSize uint, trie Trie) {
@@ -178,12 +225,34 @@ func setFIO(chunks []*Chunk) {
 
 		for j, op := range chunk.code {
 			opcode := OpCode(op)
-			if opcode.IsPush() {
-				size := getPushSize(opcode)
-				if j+size >= chunkSize {
-					nextFIO := (j + size + 1) - chunkSize
-					chunks[i+1].fio = uint8(nextFIO)
-				}
+			// Push is the only opcode with immediate
+			if !opcode.IsPush() {
+				continue
+			}
+			size := getPushSize(opcode)
+			// Fits within chunk
+			if j+size < chunkSize {
+				continue
+			}
+
+			// Note: largest possible immediate is 32 bytes.
+			// If chunkSize < 32, then data could span multiple chunks.
+			// restData is number of data bytes in next chunks.
+			restData := (j + size + 1) - chunkSize
+			spanningChunks := int(math.Ceil(float64(restData) / float64(chunkSize)))
+			// Mostly happens in case of Solidity metadata at
+			// the end of code.
+			if i+spanningChunks >= len(chunks) {
+				continue
+			}
+			k := 1
+			for restData > chunkSize {
+				chunks[i+k].fio = uint8(chunkSize)
+				k++
+				restData -= chunkSize
+			}
+			if restData > 0 {
+				chunks[i+k].fio = uint8(restData)
 			}
 		}
 	}

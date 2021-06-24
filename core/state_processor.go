@@ -19,6 +19,8 @@ package core
 import (
 	"fmt"
 	"os"
+	"strconv"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/codetrie"
 	"github.com/ethereum/go-ethereum/common"
@@ -96,7 +98,26 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 
 		defer cmFile.Close()
 		if stats.NumContracts > 0 {
-			if _, err := cmFile.WriteString(fmt.Sprintf("%d, %d, %d, %d, %d, %d, %d, %d, %d, %d\n", block.NumberU64(), stats.CodeSize, stats.ProofSize, stats.RLPStats.RLPSize, stats.RLPStats.UnRLPSize, stats.RLPStats.SnappySize, stats.ProofStats.Indices, stats.ProofStats.ZeroLevels, stats.ProofStats.Hashes, stats.ProofStats.Leaves)); err != nil {
+			rlpStats := stats.RLPStats[1]
+			proofStats := stats.ProofStats[1]
+			if _, err := cmFile.WriteString(fmt.Sprintf("%d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d\n", block.NumberU64(), stats.CodeSize, stats.ProofSizes[0], stats.ProofSizes[1], stats.ProofSizes[2], rlpStats.RLPSize, rlpStats.UnRLPSize, rlpStats.SnappySize, proofStats.Indices, proofStats.ZeroLevels, proofStats.Hashes, proofStats.Leaves)); err != nil {
+				return nil, nil, 0, err
+			}
+		}
+
+		liFile, err := os.OpenFile("./li-result.csv", os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+		if err != nil {
+			return nil, nil, 0, err
+		}
+
+		defer liFile.Close()
+		if len(bag.LargeInitCodes) > 0 {
+			sizeList := make([]string, 0, 2*len(bag.LargeInitCodes))
+			for h, s := range bag.LargeInitCodes {
+				sizeList = append(sizeList, h.Hex())
+				sizeList = append(sizeList, strconv.Itoa(s))
+			}
+			if _, err := liFile.WriteString(fmt.Sprintf("%d, %d, %s\n", block.NumberU64(), len(bag.LargeInitCodes), strings.Join(sizeList, ","))); err != nil {
 				return nil, nil, 0, err
 			}
 		}
