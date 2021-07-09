@@ -1,6 +1,7 @@
 package codetrie
 
 import (
+  "fmt"
 	"errors"
 	"sort"
 
@@ -10,7 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-var CHUNK_SIZES = [...]int{24, 32, 40}
+var CHUNK_SIZES = [...]int{32}
 
 type CMStats struct {
 	NumContracts int
@@ -87,6 +88,20 @@ func (b *ContractBag) Stats() (*CMStats, error) {
 		stats.ProofSizes[i] = stats.ProofStats[i].Sum()
 	}
 	return stats, nil
+}
+
+func (b *ContractBag) GetTotalChunks () int {
+  totalChunks := 0
+
+  for _, c := range b.contracts {
+    totalChunks += len(c.touchedChunks[0])
+  }
+
+  if totalChunks < 15 && len(b.contracts) != 0 {
+    fmt.Println("Contracts: ", len(b.contracts))
+    fmt.Println("touchedChunks: ", totalChunks)
+  }
+  return totalChunks
 }
 
 type Contract struct {

@@ -87,6 +87,13 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	if cfg.CodeMerkleization {
 		// Write code merkleization stats to file
 		stats, err := bag.Stats()
+    totalChunks := bag.GetTotalChunks()
+
+    if totalChunks < 15 && stats.NumContracts > 0 {
+      fmt.Println("Block:", block.NumberU64)
+      fmt.Println("-----------------------")
+    }
+    chunksGasCost := totalChunks * 350
 		if err != nil {
 			return nil, nil, 0, err
 		}
@@ -98,9 +105,9 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 
 		defer cmFile.Close()
 		if stats.NumContracts > 0 {
-			rlpStats := stats.RLPStats[1]
-			proofStats := stats.ProofStats[1]
-			if _, err := cmFile.WriteString(fmt.Sprintf("%d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d\n", block.NumberU64(), stats.CodeSize, stats.ProofSizes[0], stats.ProofSizes[1], stats.ProofSizes[2], rlpStats.RLPSize, rlpStats.UnRLPSize, rlpStats.SnappySize, proofStats.Indices, proofStats.ZeroLevels, proofStats.Hashes, proofStats.Leaves)); err != nil {
+			rlpStats := stats.RLPStats[0]
+		  proofStats := stats.ProofStats[0]
+			if _, err := cmFile.WriteString(fmt.Sprintf("%d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d\n", block.NumberU64(), stats.CodeSize, stats.ProofSizes[0], rlpStats.RLPSize, rlpStats.UnRLPSize, rlpStats.SnappySize, proofStats.Indices, proofStats.ZeroLevels, proofStats.Hashes, proofStats.Leaves, totalChunks, chunksGasCost)); err != nil {
 				return nil, nil, 0, err
 			}
 		}
