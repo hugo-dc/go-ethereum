@@ -1,7 +1,10 @@
 package codetrie
 
 import (
+	"encoding/hex"
+	"encoding/json"
 	"errors"
+	"os"
 	"sort"
 
 	//"fmt"
@@ -54,15 +57,98 @@ func (b *ContractBag) AddLargeInit(codeHash common.Hash, size int) {
 	b.LargeInitCodes[codeHash] = size
 }
 
+func logString(fname string, data string) {
+	proofFile, err := os.OpenFile(fname, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+	if err != nil {
+		return
+	}
+
+	defer proofFile.Close()
+	if _, err := proofFile.WriteString(data); err != nil {
+		return
+	}
+}
+
+func extractChunksData(chunks []int) string {
+	result := ""
+
+	for _, c := range chunks {
+		result += string(c) + ","
+	}
+
+	return result
+}
+
+func extractBaselineData(p *sszlib.Multiproof) string {
+	b, err := json.Marshal(p)
+	if err != nil {
+		return ""
+	}
+	return string(b)
+}
+
+func extractSlimData(cp *sszlib.CompressedMultiproof) string {
+	b, err := json.Marshal(cp)
+	if err != nil {
+		return ""
+	}
+	return string(b)
+}
+
+func extractBaselineRLP(p *ssz.Multiproof) string {
+	rlp, err := p.Serialize()
+	if err != nil {
+		return ""
+	}
+
+	return hex.EncodeToString(rlp)
+}
+
+func extractSlimRLP(cp *ssz.CompressedMultiproof) string {
+	rlp, err := cp.Serialize()
+	if err != nil {
+		return ""
+	}
+	return hex.EncodeToString(rlp)
+}
+
 func (b *ContractBag) Stats() (*CMStats, error) {
 	stats := NewCMStats()
 	stats.NumContracts = len(b.contracts)
-	for _, c := range b.contracts {
+	for h, c := range b.contracts {
 		stats.CodeSize += c.CodeSize()
 		rawProof, err := c.Prove()
 		if err != nil {
 			return nil, err
 		}
+
+		cHash := hex.EncodeToString(h[:])
+		slimProof := rawProof.Compress()
+
+		// Convert Proof into a Serializable format
+		p := ssz.NewMultiproof(rawProof)
+		cp := ssz.NewCompressedMultiproof(slimProof)
+
+		// Log Bytecode
+		logString(cHash+"_code.txt", hex.EncodeToString(c.Code()))
+
+		// Log Touched Chunks
+		chunksString := extractChunksData(c.TouchedChunks())
+		logString(cHash+"_chunks.txt", chunksString)
+
+		// Proof Data
+		baselineData := extractBaselineData(rawProof)
+		logString(cHash+"_baseline.txt", baselineData)
+
+		slimData := extractSlimData(slimProof)
+		logString(cHash+"_slim.txt", slimData)
+
+		// Proof Data as RLP
+		baselineRlp := extractBaselineRLP(p)
+		logString(cHash+"_rlp_baseline.txt", baselineRlp)
+
+		slimRlp := extractSlimRLP(cp)
+		logString(cHash+"_rlp_slim.txt", slimRlp)
 
 		//fmt.Println("contract:")
 		//fmt.Println("\tcode: ", hex.EncodeToString(c.Code()))
@@ -82,9 +168,6 @@ func (b *ContractBag) Stats() (*CMStats, error) {
 				fmt.Println(hex.EncodeToString(hash))
 			}
 		*/
-
-		p := ssz.NewMultiproof(rawProof)
-		cp := ssz.NewCompressedMultiproof(rawProof.Compress())
 
 		ps := cp.ProofStats()
 		stats.ProofStats.Add(ps)
