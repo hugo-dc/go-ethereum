@@ -100,6 +100,7 @@ type RLPStats struct {
 	RLPSize    int
 	UnRLPSize  int
 	SnappySize int
+	SnappySlim int
 }
 
 func NewRLPStats(p *Multiproof, cp *CompressedMultiproof) (*RLPStats, error) {
@@ -119,6 +120,8 @@ func NewRLPStats(p *Multiproof, cp *CompressedMultiproof) (*RLPStats, error) {
 	stats.UnRLPSize = len(unrlpProof)
 	compressedUnRLP := snappy.Encode(nil, unrlpProof)
 	stats.SnappySize = len(compressedUnRLP)
+	compressedRLP := snappy.Encode(nil, rlpProof)
+	stats.SnappySlim = len(compressedRLP)
 
 	return stats, nil
 }
@@ -127,6 +130,7 @@ func (rs *RLPStats) Add(o *RLPStats) {
 	rs.RLPSize += o.RLPSize
 	rs.UnRLPSize += o.UnRLPSize
 	rs.SnappySize += o.SnappySize
+	rs.SnappySlim += o.SnappySlim
 }
 
 func intSliceToUint16(source []int) []uint16 {

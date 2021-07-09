@@ -4,6 +4,8 @@ import (
 	"errors"
 	"sort"
 
+	//"fmt"
+
 	sszlib "github.com/ferranbt/fastssz"
 
 	"github.com/ethereum/go-ethereum/codetrie/ssz"
@@ -61,6 +63,26 @@ func (b *ContractBag) Stats() (*CMStats, error) {
 		if err != nil {
 			return nil, err
 		}
+
+		//fmt.Println("contract:")
+		//fmt.Println("\tcode: ", hex.EncodeToString(c.Code()))
+		//fmt.Println("\ttouchedChunks: ", c.TouchedChunks())
+		//fmt.Println("proof: ")
+		//fmt.Println("\tIndices: ", rawProof.Indices)
+		//fmt.Println("\tLeaves: ", len(rawProof.Leaves))
+
+		/*
+			for _, leaf := range rawProof.Leaves {
+				fmt.Println(hex.EncodeToString(leaf))
+			}
+		*/
+		//fmt.Println("\tHashes: ", len(rawProof.Hashes))
+		/*
+			for _, hash := range rawProof.Hashes {
+				fmt.Println(hex.EncodeToString(hash))
+			}
+		*/
+
 		p := ssz.NewMultiproof(rawProof)
 		cp := ssz.NewCompressedMultiproof(rawProof.Compress())
 
@@ -117,6 +139,18 @@ func (c *Contract) TouchRange(from, to int) error {
 
 func (c *Contract) CodeSize() int {
 	return len(c.code)
+}
+
+func (c *Contract) Code() []byte {
+	return c.code
+}
+
+func (c *Contract) TouchedChunks() []int {
+	indices := make([]int, 0, len(c.touchedChunks))
+	for k := range c.touchedChunks {
+		indices = append(indices, k)
+	}
+	return indices
 }
 
 func (c *Contract) Prove() (*sszlib.Multiproof, error) {
