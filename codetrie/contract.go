@@ -58,7 +58,8 @@ func (b *ContractBag) AddLargeInit(codeHash common.Hash, size int) {
 }
 
 func logString(fname string, data string) {
-	proofFile, err := os.OpenFile(fname, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+  fileName := "./proof_data/" + fname
+	proofFile, err := os.OpenFile(fileName, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
 	if err != nil {
 		return
 	}
@@ -69,30 +70,63 @@ func logString(fname string, data string) {
 	}
 }
 
+func extractIndices(indices []int) string {
+  strIndices, err := json.Marshal(indices)
+
+  if err != nil {
+    return ""
+  }
+  return string(strIndices)
+}
+
+func extractLeaves(leaves [][]byte) string {
+  strLeaves := ""
+  for _, leaf := range leaves {
+    strLeaves = strLeaves + hex.EncodeToString(leaf) + "\n"
+  }
+
+  return strLeaves
+}
+
+func extractHashes(hashes [][]byte) string {
+  strHashes := ""
+  for _, hash := range hashes {
+    strHashes = strHashes + hex.EncodeToString(hash) + "\n"
+  }
+  return strHashes
+}
+
+func extractZeroLevels(zl []int) string {
+  b, err := json.Marshal(zl)
+  if err != nil {
+    return ""
+  }
+  return string(b)
+}
+
 func extractChunksData(chunks []int) string {
-	result := ""
+  b, err := json.Marshal(chunks)
+  if err != nil {
+    return ""
+  }
 
-	for _, c := range chunks {
-		result += string(c) + ","
-	}
-
-	return result
+  return string(b)
 }
 
 func extractBaselineData(p *sszlib.Multiproof) string {
-	b, err := json.Marshal(p)
-	if err != nil {
-		return ""
-	}
-	return string(b)
+  strIndices := extractIndices(p.Indices)
+  strLeaves := extractLeaves(p.Leaves)
+  strHashes := extractHashes(p.Hashes)
+
+  return "Indices:\n" + strIndices + "\n\nHashes:\n" + strHashes + "\n\nLeaves:\n" + strLeaves
 }
 
 func extractSlimData(cp *sszlib.CompressedMultiproof) string {
-	b, err := json.Marshal(cp)
-	if err != nil {
-		return ""
-	}
-	return string(b)
+  strIndices := extractIndices(cp.Indices)
+  strLeaves := extractLeaves(cp.Leaves)
+  strHashes := extractHashes(cp.Hashes)
+  strZeroLevels := extractZeroLevels(cp.ZeroLevels)
+  return "Indices:\n" + strIndices + "\n\nZeroLevels:\n" + strZeroLevels + "\n\nHashes:\n" + strHashes + "\n\nLeaves:\n" + strLeaves
 }
 
 func extractBaselineRLP(p *ssz.Multiproof) string {
