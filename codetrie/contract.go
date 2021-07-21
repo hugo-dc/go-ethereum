@@ -123,10 +123,10 @@ func (c *Contract) Prove() (*sszlib.Multiproof, error) {
 
 	touchedChunks := c.sortedTouchedChunks()
 	chunkIndices := make([]int, 0, len(touchedChunks)*2)
-	for k := range touchedChunks {
+	for _, v := range touchedChunks {
 		// 6144 is global index for first chunk's node
 		// Each chunk node has two children: FIO, code
-		chunkIdx := 6144 + k
+		chunkIdx := 6144 + v
 		chunkIndices = append(chunkIndices, chunkIdx*2)
 		chunkIndices = append(chunkIndices, chunkIdx*2+1)
 	}
